@@ -2,16 +2,199 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>GPU Gravity Particles</title>
+    <title>Metaballs in WebGL - Full Example</title>
     <style>
-        html, body { height: 100%; margin: 0; padding: 0; overflow: hidden; background: #181818; }
-        body { width: 100vw; height: 100vh; }
-        canvas { display: block; width: 100vw; height: 100vh; }
+        body, html {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
+        canvas {
+            width: 800px; /* Changed from 100vw */
+            height: 800px; /* Changed from 100vh */
+            display: block;
+            background-color:#207DCA;
+        }
     </style>
 </head>
 <body>
-    <canvas id="canvas"></canvas>
-    <script type="module" src="/src/particles.js"></script>
+<canvas id="glcanvas" width="500" height="500"></canvas> <!-- Set explicit dimensions -->
+<script>
+    function createShader(gl, type, source) {
+        const shader = gl.createShader(type);
+        gl.shaderSource(shader, source);
+        gl.compileShader(shader);
+        if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+            console.error('An error occurred compiling the shaders: ' + gl.getShaderInfoLog(shader));
+            gl.deleteShader(shader);
+            return null;
+        }
+        return shader;
+    }
+    
+    function initWebGL() {
+    const canvas = document.getElementById('glcanvas');
+    // Specify context creation attributes for transparency
+    const gl = canvas.getContext('webgl', { alpha: true });
+    if (!gl) {
+        alert('Unable to initialize WebGL. Your browser may not support it.');
+        return;
+    }
+
+    // Use clear color with alpha 0 for transparency
+    gl.clearColor(0.0, 0.0, 0.0, 0.0); // Fully transparent background
+    
+    gl.viewport(0, 0, canvas.width, canvas.height);
+    gl.enable(gl.BLEND);
+    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+
+    
+        const vertexShaderSource = `
+            attribute vec2 position;
+            void main() {
+                gl_Position = vec4(position, 0.0, 1.0);
+            }
+        `;
+    
+        const fragmentShaderSource = `
+        precision highp float;
+
+        uniform float canvasWidth;
+        uniform float canvasHeight;
+        uniform float time; // Time uniform for animation
+        uniform vec2 metaballPositions[9]; // Array of metaball positions
+        float movementScale = 0.95; // Scale of movement towards the center (0.0 to 1.0)
+
+        float metaball(vec2 point, vec2 center, float radius) {
+            vec2 aspectRatio = vec2(canvasWidth / canvasHeight, 1.0);
+            point.x *= aspectRatio.x;
+            center.x *= aspectRatio.x;
+            float dx = point.x - center.x;
+            float dy = point.y - center.y;
+            return radius / (dx * dx + dy * dy);
+        }
+
+        void main() {
+            vec2 point = gl_FragCoord.xy / vec2(canvasWidth, canvasHeight);
+            float sum = 0.0;
+            vec2 canvasCenter = vec2(0.5, 0.5); // Center of the canvas
+
+            // Add the static metaball at the center
+            // sum += metaball(point, canvasCenter, 0.01); // Increase radius for larger size
+
+            for (int i = 0; i < 9; i++) {
+                float delay = 0.15 * float(i); // Delay factor for sequential movement
+                float lerpFactor = (sin(time - delay) + 1.0) / 2.0;
+                
+                // Scale the lerpFactor by movementScale to adjust travel distance
+                vec2 targetPosition = mix(metaballPositions[i], canvasCenter, lerpFactor * movementScale);
+                sum += metaball(point, targetPosition, 0.00125);
+            }
+
+            if (sum > 0.5) {
+                gl_FragColor = vec4(0.0, 0.0, 1.0, 1.0); // Fully opaque blue
+            } else {
+                gl_FragColor = vec4(0.0, 0.0, 0.0, 0.0); // Fully transparent
+            }
+            // Use smoothstep for a smooth transition at the edges
+                float edge0 = 0.5;
+                float edge1 = 0.54;
+                float alpha = smoothstep(edge0, edge1, sum);
+                gl_FragColor = vec4(1, 1, 1, alpha); // Adjust color and opacity as needed
+
+        }
+        `;
+
+    
+        // Create and compile shaders
+        const vertexShader = createShader(gl, gl.VERTEX_SHADER, vertexShaderSource);
+        const fragmentShader = createShader(gl, gl.FRAGMENT_SHADER, fragmentShaderSource);
+    
+        // Link shaders into a program
+        const shaderProgram = gl.createProgram();
+        
+        gl.enable(gl.BLEND);
+        gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+        gl.attachShader(shaderProgram, vertexShader);
+        gl.attachShader(shaderProgram, fragmentShader);
+        
+        gl.linkProgram(shaderProgram);
+        if (!gl.getProgramParameter(shaderProgram, gl.LINK_STATUS)) {
+            alert('Unable to initialize the shader program: ' + gl.getProgramInfoLog(shaderProgram));
+            return;
+        }
+        gl.useProgram(shaderProgram);
+    
+        // Set up the vertex data
+        const vertices = new Float32Array([
+            -1.0, -1.0, 1.0, -1.0, -1.0, 1.0,
+            -1.0, 1.0, 1.0, -1.0, 1.0, 1.0,
+        ]);
+        const positionBuffer = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+        gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.STATIC_DRAW);
+    
+        const positionLocation = gl.getAttribLocation(shaderProgram, 'position');
+        gl.enableVertexAttribArray(positionLocation);
+        gl.vertexAttribPointer(positionLocation, 2, gl.FLOAT, false, 0, 0);
+    
+        // Pass canvas size to the shader
+        const canvasWidthLocation = gl.getUniformLocation(shaderProgram, 'canvasWidth');
+        const canvasHeightLocation = gl.getUniformLocation(shaderProgram, 'canvasHeight');
+        gl.uniform1f(canvasWidthLocation, canvas.width);
+        gl.uniform1f(canvasHeightLocation, canvas.height);
+    
+        const timeLocation = gl.getUniformLocation(shaderProgram, 'time');
+        let startTime = Date.now();
+
+        // Maximum number of metaballs we'll support
+        const maxMetaballs = 9;
+
+        // Calculate and update metaball positions in JavaScript
+        function updateMetaballPositions(currentTime) {
+            const metaballPositions = [];
+            const radius = 0.4; // Reduce this value to bring metaballs closer to the center
+
+            for (let i = 0; i < maxMetaballs; i++) {
+                // Arrange metaballs in a circle
+                const angle = (i / maxMetaballs) * Math.PI * 2;
+                metaballPositions.push(Math.cos(angle) * radius + 0.5); // X position
+                metaballPositions.push(Math.sin(angle) * radius + 0.5); // Y position
+            }
+            return metaballPositions;
+        }
+    
+        function animate() {
+            let currentTime = ((Date.now() - startTime) / 1000.0) * 2; // Speed factor of 2
+
+            gl.uniform1f(timeLocation, currentTime);
+            
+            const metaballPositions = updateMetaballPositions(currentTime);
+            // Assuming you have created uniforms for metaball positions
+            // This is a simplification. You would typically use uniform arrays or texture-based data passing.
+            for (let i = 0; i < maxMetaballs; i++) {
+                const uniformLocation = gl.getUniformLocation(shaderProgram, `metaballPositions[${i}]`);
+                gl.uniform2fv(uniformLocation, metaballPositions.slice(i * 2, i * 2 + 2));
+            }
+            
+            draw();
+            requestAnimationFrame(animate);
+        }
+    
+        function draw() {
+            gl.clear(gl.COLOR_BUFFER_BIT);
+            gl.drawArrays(gl.TRIANGLES, 0, 6);
+        }
+    
+        animate();
+    }
+    
+    window.onload = initWebGL;
+    </script>
+    
 </body>
 </html>
