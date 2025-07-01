@@ -136,6 +136,30 @@
             border: none;
             border-radius: 5px;
         }
+
+        /* Add styles for the force type selector */
+        .force-type-selector {
+            display: flex;
+            justify-content: space-between;
+            margin: 10px 0;
+            gap: 10px;
+        }
+
+        .force-type-button {
+            flex: 1;
+            padding: 8px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .force-type-button.active {
+            background: #2196F3;
+            border-color: #2196F3;
+        }
     </style>
 </head>
 <body>
@@ -198,6 +222,40 @@
                 <input type="range" id="distance-color-slider" class="range-slider" 
                        min="0.1" max="2.0" step="0.1" value="1.0">
                 <span class="slider-value">Blend: <span id="distance-color-value">1.0</span></span>
+            </div>
+        </div>
+
+        <!-- Mouse Interaction -->
+        <div class="control-group">
+            <h4 style="margin-top: 0;">Mouse Interaction</h4>
+            
+            <!-- Mouse Force Toggle -->
+            <div class="control-header">
+                <span>Mouse Force</span>
+                <label class="toggle-switch">
+                    <input type="checkbox" id="mouse-force-toggle" checked>
+                    <span class="toggle-slider"></span>
+                </label>
+            </div>
+
+            <!-- Force Type Selector -->
+            <div class="force-type-selector">
+                <button id="attract-button" class="force-type-button active">Attract</button>
+                <button id="repel-button" class="force-type-button">Repel</button>
+            </div>
+
+            <!-- Force Strength -->
+            <div class="slider-container">
+                <input type="range" id="mouse-force-slider" class="range-slider" 
+                       min="0.1" max="2.0" step="0.1" value="1.0">
+                <span class="slider-value">Force: <span id="mouse-force-value">1.0</span></span>
+            </div>
+
+            <!-- Effect Radius -->
+            <div class="slider-container">
+                <input type="range" id="mouse-radius-slider" class="range-slider" 
+                       min="50" max="300" step="10" value="150">
+                <span class="slider-value">Radius: <span id="mouse-radius-value">150</span>px</span>
             </div>
         </div>
 
@@ -326,6 +384,11 @@
         uniform float canvasHeight;
         uniform float time;
         uniform vec2 metaballPositions[3];
+        uniform vec2 mousePos;
+        uniform float mouseForceEnabled;
+        uniform float mouseForceStrength;
+        uniform float mouseForceRadius;
+        uniform float mouseForceType;
         uniform vec3 baseColor;
         uniform vec3 secondaryColor;
         uniform vec3 backgroundColor;
@@ -524,6 +587,26 @@
             return blendColors(baseColor, secondaryColor, distanceFactor);
         }
 
+        vec2 applyMouseForce(vec2 position) {
+            if (mouseForceEnabled <= 0.0) return position;
+
+            vec2 toMouse = mousePos - position;
+            float dist = length(toMouse);
+            
+            // Convert pixel radius to normalized space
+            float maxRadius = mouseForceRadius / 500.0;
+            
+            if (dist < 0.001) return position; // Prevent division by zero
+            if (dist > maxRadius) return position;
+            
+            // Stronger force calculation
+            float normalizedDist = dist / maxRadius;
+            float forceMagnitude = (1.0 - normalizedDist * normalizedDist) * mouseForceStrength * 0.2;
+            
+            // Apply force direction (attract or repel)
+            return position + normalize(toMouse) * forceMagnitude * mouseForceType;
+        }
+
         void main() {
             vec2 point = gl_FragCoord.xy / vec2(canvasWidth, canvasHeight);
             float sum = 0.0;
@@ -531,55 +614,38 @@
             float totalTension = 0.0;
             vec3 finalColor = baseColor;
             
-            // Store positions for surface tension calculation
             vec2 finalPositions[3];
             vec2 previousPositions[3];
 
-            // First pass: calculate final positions
+            // First pass: calculate positions
             for (int i = 0; i < 3; i++) {
                 float delay = 0.15 * float(i);
                 float lerpFactor = (sin(time - delay) + 1.0) / 2.0;
                 
-                // Apply damping to movement
-                lerpFactor *= mix(1.0, dampingFactor, DAMPING_ENABLED);
-                
                 vec2 position = metaballPositions[i];
-                vec2 prevPosition = position;  // Store previous position
+                vec2 prevPosition = position;
+
+                // Apply mouse force
+                position = applyMouseForce(position);
                 
-                // Apply turbulence to the position
+                // Apply other effects
                 position = turbulence(position, time);
-                
-                // Apply angular momentum
                 position = applyAngularMomentum(position, canvasCenter, time);
-                
-                // Apply vortex effect to the movement
                 if (VORTICITY_ENABLED > 0.0) {
                     position = applyVortex(position, canvasCenter, time);
                 }
                 
-                // Mix with center position
-                position = mix(position, canvasCenter, lerpFactor * 0.95);
-                
-                // Apply viscous damping
+                // Reduced center pull and damping
+                lerpFactor *= 0.5;
+                position = mix(position, canvasCenter, lerpFactor);
                 position = applyViscousDamping(position, prevPosition);
                 
                 finalPositions[i] = position;
                 previousPositions[i] = prevPosition;
             }
 
-            // Second pass: calculate metaball field with surface tension and color
+            // Second pass: calculate metaball field
             for (int i = 0; i < 3; i++) {
-                float localTension = surfaceTensionFactor;
-                
-                // Adjust tension based on distance to other metaballs
-                for (int j = 0; j < 3; j++) {
-                    if (i != j) {
-                        float dist = metaballDistance(finalPositions[i], finalPositions[j]);
-                        // More gradual tension increase with tighter bounds
-                        localTension *= min(1.0 + smoothstep(0.2, 0.05, dist), 1.5);
-                    }
-                }
-                
                 float fieldStrength = metaball(point, finalPositions[i], 0.003125);
                 sum += fieldStrength;
 
@@ -593,12 +659,7 @@
                     blendColors(velocityBasedColor, distanceBasedColor, 0.5),
                     fieldStrength / (sum + 0.01)
                 );
-                
-                totalTension += localTension;
             }
-
-            // Average and clamp the tension with tighter bounds
-            totalTension = min(totalTension / 3.0, 0.8);
 
             float edge0 = 0.25;
             float edge1 = 0.27;
@@ -673,6 +734,78 @@
             distanceColorEnabled: gl.getUniformLocation(shaderProgram, 'distanceColorEnabled'),
             distanceColorIntensity: gl.getUniformLocation(shaderProgram, 'distanceColorIntensity')
         };
+
+        // Add mouse tracking
+        let mouseX = 0;
+        let mouseY = 0;
+        let isAttracting = true;
+
+        // Update mouse tracking to use canvas coordinates properly
+        function updateMousePosition(e) {
+            const rect = canvas.getBoundingClientRect();
+            const scaleX = canvas.width / rect.width;
+            const scaleY = canvas.height / rect.height;
+            
+            mouseX = ((e.clientX - rect.left) * scaleX) / canvas.width;
+            mouseY = 1.0 - ((e.clientY - rect.top) * scaleY) / canvas.height;
+            
+            gl.uniform2f(gl.getUniformLocation(shaderProgram, 'mousePos'), mouseX, mouseY);
+        }
+
+        canvas.addEventListener('mousemove', updateMousePosition);
+        canvas.addEventListener('mouseenter', updateMousePosition);
+
+        // Update mouse controls setup
+        function setupMouseControls() {
+            const attractButton = document.getElementById('attract-button');
+            const repelButton = document.getElementById('repel-button');
+
+            document.getElementById('mouse-force-toggle').addEventListener('change', function(e) {
+                gl.uniform1f(gl.getUniformLocation(shaderProgram, 'mouseForceEnabled'), e.target.checked ? 1.0 : 0.0);
+            });
+
+            document.getElementById('mouse-force-slider').addEventListener('input', function(e) {
+                const value = parseFloat(e.target.value);
+                gl.uniform1f(gl.getUniformLocation(shaderProgram, 'mouseForceStrength'), value);
+                document.getElementById('mouse-force-value').textContent = value.toFixed(1);
+            });
+
+            document.getElementById('mouse-radius-slider').addEventListener('input', function(e) {
+                const value = parseFloat(e.target.value);
+                gl.uniform1f(gl.getUniformLocation(shaderProgram, 'mouseForceRadius'), value);
+                document.getElementById('mouse-radius-value').textContent = value;
+            });
+
+            attractButton.addEventListener('click', function() {
+                isAttracting = true;
+                gl.uniform1f(gl.getUniformLocation(shaderProgram, 'mouseForceType'), 1.0);
+                attractButton.classList.add('active');
+                repelButton.classList.remove('active');
+            });
+
+            repelButton.addEventListener('click', function() {
+                isAttracting = false;
+                gl.uniform1f(gl.getUniformLocation(shaderProgram, 'mouseForceType'), -1.0);
+                repelButton.classList.add('active');
+                attractButton.classList.remove('active');
+            });
+        }
+
+        // Initialize mouse controls with stronger default values
+        setupMouseControls();
+        gl.uniform2f(gl.getUniformLocation(shaderProgram, 'mousePos'), 0.5, 0.5);
+        gl.uniform1f(gl.getUniformLocation(shaderProgram, 'mouseForceEnabled'), document.getElementById('mouse-force-toggle').checked ? 1.0 : 0.0);
+        gl.uniform1f(gl.getUniformLocation(shaderProgram, 'mouseForceStrength'), 1.5); // Increased default strength
+        gl.uniform1f(gl.getUniformLocation(shaderProgram, 'mouseForceRadius'), 200.0); // Increased default radius
+        gl.uniform1f(gl.getUniformLocation(shaderProgram, 'mouseForceType'), 1.0);
+
+        // Update mouse force slider default
+        document.getElementById('mouse-force-slider').value = 1.5;
+        document.getElementById('mouse-force-value').textContent = '1.5';
+        
+        // Update radius slider default
+        document.getElementById('mouse-radius-slider').value = 200;
+        document.getElementById('mouse-radius-value').textContent = '200';
 
         // Control event listeners
         function setupControlListeners() {
