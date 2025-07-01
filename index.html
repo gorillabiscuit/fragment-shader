@@ -68,20 +68,17 @@
         uniform float time;
         uniform vec2 metaballPositions[3];
 
-        // MOVEMENT CONTROLS
-        // ----------------
-        // movementScale: Controls how far balls move towards/away from center
-        // - 0.95 = full movement range
-        // - 0.5 = half movement range
-        // - 0.25 = quarter movement range
-        float movementScale = 0.95;
+        // EFFECT CONTROLS
+        // ----------------------------
+        const float DAMPING_ENABLED = 1.0;  // 1.0 = on, 0.0 = off
+        float dampingFactor = 0.90;         // Increased damping (was 0.95)
+                                           // Lower value = stronger damping
+                                           // Try values: 0.95 (subtle), 0.80 (medium), 0.60 (strong)
 
-        // METABALL FIELD CONTROLS
-        // ----------------------
-        // Field radius affects the size and interaction of metaballs
-        // Larger radius = earlier/more blending between balls
-        // Current value: 0.003125 for large distinct balls
-        // Try: 0.006 for earlier blending
+        const float VORTICITY_ENABLED = 1.0;  // 1.0 = on, 0.0 = off
+        float vorticityFactor = 0.9;         // Controls strength of the vortex effect
+                                            // Try values: 0.2 (subtle), 0.5 (medium), 1.0 (strong)
+
         float metaball(vec2 point, vec2 center, float radius) {
             vec2 aspectRatio = vec2(canvasWidth / canvasHeight, 1.0);
             point.x *= aspectRatio.x;
@@ -89,6 +86,34 @@
             float dx = point.x - center.x;
             float dy = point.y - center.y;
             return radius / (dx * dx + dy * dy);
+        }
+
+        vec2 applyVortex(vec2 position, vec2 center, float t) {
+            vec2 toCenter = center - position;
+            float dist = length(toCenter);
+            
+            // Normalize distance to control the effect strength
+            float normalizedDist = clamp(dist, 0.0, 1.0);
+            
+            // Make the rotation slower and more controlled
+            // Rotation is faster when closer to center, but capped
+            float angle = t * vorticityFactor * 0.2 * (1.0 - normalizedDist * 0.8);
+            
+            // Rotate the position around the center
+            float s = sin(angle);
+            float c = cos(angle);
+            vec2 rotated = vec2(
+                toCenter.x * c - toCenter.y * s,
+                toCenter.x * s + toCenter.y * c
+            );
+            
+            // Add a small inward pull to maintain the spiral
+            float pullStrength = 0.02 * vorticityFactor;
+            rotated = rotated * (1.0 - pullStrength);
+            
+            // Ensure the position stays within bounds
+            vec2 newPos = center - rotated;
+            return clamp(newPos, vec2(0.0), vec2(1.0));
         }
 
         void main() {
@@ -99,21 +124,27 @@
             for (int i = 0; i < 3; i++) {
                 float delay = 0.15 * float(i);
                 float lerpFactor = (sin(time - delay) + 1.0) / 2.0;
-                vec2 targetPosition = mix(metaballPositions[i], canvasCenter, lerpFactor * movementScale);
-                sum += metaball(point, targetPosition, 0.003125);  // Keep original field strength
+                
+                // Apply damping to movement
+                lerpFactor *= mix(1.0, dampingFactor, DAMPING_ENABLED);
+                
+                vec2 position = metaballPositions[i];
+                
+                // Apply vortex effect to the movement
+                if (VORTICITY_ENABLED > 0.0) {
+                    position = applyVortex(position, canvasCenter, time);
+                }
+                
+                // Mix with center position
+                position = mix(position, canvasCenter, lerpFactor * 0.95);
+                
+                sum += metaball(point, position, 0.003125);
             }
 
-            // VISCOSITY & EDGE CONTROL
-            // -----------------------
-            // edge0 = 0.25: Start blending early (more liquid-like)
-            // edge1 - edge0 = 0.02: Sharp edges (was 0.04)
-            // 
-            // For even sharper edges: reduce difference to 0.01
-            // For softer edges: increase difference up to 0.04
-            float edge0 = 0.25;  // Keep early blending
-            float edge1 = 0.27;  // Reduced gap for sharper edges
+            float edge0 = 0.25;
+            float edge1 = 0.27;
             float alpha = smoothstep(edge0, edge1, sum);
-            gl_FragColor = vec4(1, 1, 1, alpha);
+            gl_FragColor = vec4(1.0, 1.0, 1.0, alpha);
         }
         `;
 
@@ -215,3 +246,5 @@
     
 </body>
 </html>
+
+
