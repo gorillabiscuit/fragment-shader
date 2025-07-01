@@ -79,6 +79,50 @@
         float vorticityFactor = 0.9;         // Controls strength of the vortex effect
                                             // Try values: 0.2 (subtle), 0.5 (medium), 1.0 (strong)
 
+        const float TURBULENCE_ENABLED = 1.0;  // 1.0 = on, 0.0 = off
+        float turbulenceFactor = 0.002;       // Controls strength of the turbulence
+                                             // Try values: 0.001 (subtle), 0.002 (medium), 0.004 (strong)
+
+        // Pseudo-random value generator
+        float rand(vec2 n) { 
+            return fract(sin(dot(n, vec2(12.9898, 78.233))) * 43758.5453);
+        }
+
+        // Smooth interpolation function
+        float smooth_rand(vec2 n) {
+            vec2 i = floor(n);
+            vec2 f = fract(n);
+            float a = rand(i);
+            float b = rand(i + vec2(1.0, 0.0));
+            float c = rand(i + vec2(0.0, 1.0));
+            float d = rand(i + vec2(1.0, 1.0));
+            vec2 u = f * f * (3.0 - 2.0 * f);
+            return mix(a, b, u.x) + (c - a) * u.y * (1.0 - u.x) + (d - b) * u.x * u.y;
+        }
+
+        // Turbulence function using multiple noise octaves
+        vec2 turbulence(vec2 pos, float t) {
+            if (TURBULENCE_ENABLED <= 0.0) return pos;
+
+            vec2 offset = vec2(0.0);
+            float scale = 1.0;
+            float weight = 1.0;
+            
+            // Add multiple layers of noise
+            for (int i = 0; i < 3; i++) {
+                vec2 p = pos * scale + vec2(t * 0.1, t * -0.05);
+                float noise = smooth_rand(p);
+                offset += vec2(
+                    cos(noise * 6.28318) * weight * turbulenceFactor,
+                    sin(noise * 6.28318) * weight * turbulenceFactor
+                );
+                scale *= 2.0;
+                weight *= 0.5;
+            }
+            
+            return pos + offset;
+        }
+
         float metaball(vec2 point, vec2 center, float radius) {
             vec2 aspectRatio = vec2(canvasWidth / canvasHeight, 1.0);
             point.x *= aspectRatio.x;
@@ -129,6 +173,9 @@
                 lerpFactor *= mix(1.0, dampingFactor, DAMPING_ENABLED);
                 
                 vec2 position = metaballPositions[i];
+                
+                // Apply turbulence to the position
+                position = turbulence(position, time);
                 
                 // Apply vortex effect to the movement
                 if (VORTICITY_ENABLED > 0.0) {
