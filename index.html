@@ -70,18 +70,22 @@
 
         // EFFECT CONTROLS
         // ----------------------------
-        const float DAMPING_ENABLED = 1.0;  // 1.0 = on, 0.0 = off
+        const float DAMPING_ENABLED = 0.0;  // 1.0 = on, 0.0 = off
         float dampingFactor = 0.90;         // Increased damping (was 0.95)
                                            // Lower value = stronger damping
                                            // Try values: 0.95 (subtle), 0.80 (medium), 0.60 (strong)
 
-        const float VORTICITY_ENABLED = 1.0;  // 1.0 = on, 0.0 = off
+        const float VORTICITY_ENABLED = 0.0;  // 1.0 = on, 0.0 = off
         float vorticityFactor = 0.9;         // Controls strength of the vortex effect
                                             // Try values: 0.2 (subtle), 0.5 (medium), 1.0 (strong)
 
         const float TURBULENCE_ENABLED = 1.0;  // 1.0 = on, 0.0 = off
-        float turbulenceFactor = 0.002;       // Controls strength of the turbulence
-                                             // Try values: 0.001 (subtle), 0.002 (medium), 0.004 (strong)
+        float turbulenceFactor = 0.5;       // Controls strength of the turbulence
+                                           // Try values: 0.2 (subtle), 0.5 (medium), 1.0 (strong)
+
+        const float ANGULAR_MOMENTUM_ENABLED = 1.0;  // 1.0 = on, 0.0 = off
+        float angularMomentumFactor = 0.003;        // Controls strength of orbital motion
+                                                    // Try values: 0.002 (subtle), 0.003 (medium), 0.005 (strong)
 
         // Pseudo-random value generator
         float rand(vec2 n) { 
@@ -105,17 +109,18 @@
             if (TURBULENCE_ENABLED <= 0.0) return pos;
 
             vec2 offset = vec2(0.0);
-            float scale = 1.0;
-            float weight = 1.0;
+            float scale = 4.0;  // Increased base scale for more visible effect
+            float weight = turbulenceFactor;  // Use turbulenceFactor directly as weight
             
             // Add multiple layers of noise
             for (int i = 0; i < 3; i++) {
-                vec2 p = pos * scale + vec2(t * 0.1, t * -0.05);
+                vec2 p = pos * scale + vec2(t * 0.2, t * -0.1);  // Increased time influence
                 float noise = smooth_rand(p);
                 offset += vec2(
-                    cos(noise * 6.28318) * weight * turbulenceFactor,
-                    sin(noise * 6.28318) * weight * turbulenceFactor
-                );
+                    cos(noise * 6.28318),
+                    sin(noise * 6.28318)
+                ) * weight * 0.1;  // Scale the offset by a fixed amount
+                
                 scale *= 2.0;
                 weight *= 0.5;
             }
@@ -160,6 +165,33 @@
             return clamp(newPos, vec2(0.0), vec2(1.0));
         }
 
+        vec2 applyAngularMomentum(vec2 position, vec2 center, float t) {
+            if (ANGULAR_MOMENTUM_ENABLED <= 0.0) return position;
+
+            vec2 toCenter = center - position;
+            float dist = length(toCenter);
+            
+            // Avoid division by zero and extreme values
+            dist = max(dist, 0.1);
+            
+            // Calculate angular velocity based on distance
+            // Closer objects rotate faster
+            float angularVelocity = 1.0 / max(dist, 0.1);
+            
+            // Calculate rotation angle
+            float angle = t * angularMomentumFactor * angularVelocity;
+            
+            // Rotate the position around the center
+            float s = sin(angle);
+            float c = cos(angle);
+            vec2 rotated = vec2(
+                toCenter.x * c - toCenter.y * s,
+                toCenter.x * s + toCenter.y * c
+            );
+            
+            return center - rotated;
+        }
+
         void main() {
             vec2 point = gl_FragCoord.xy / vec2(canvasWidth, canvasHeight);
             float sum = 0.0;
@@ -176,6 +208,9 @@
                 
                 // Apply turbulence to the position
                 position = turbulence(position, time);
+                
+                // Apply angular momentum
+                position = applyAngularMomentum(position, canvasCenter, time);
                 
                 // Apply vortex effect to the movement
                 if (VORTICITY_ENABLED > 0.0) {
