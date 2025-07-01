@@ -87,6 +87,10 @@
         float angularMomentumFactor = 0.003;        // Controls strength of orbital motion
                                                     // Try values: 0.002 (subtle), 0.003 (medium), 0.005 (strong)
 
+        const float SURFACE_TENSION_ENABLED = 1.0;  // 1.0 = on, 0.0 = off
+        float surfaceTensionFactor = 0.03;          // Controls strength of surface tension
+                                                   // Try values: 0.2 (subtle), 0.3 (medium), 0.5 (strong)
+
         // Pseudo-random value generator
         float rand(vec2 n) { 
             return fract(sin(dot(n, vec2(12.9898, 78.233))) * 43758.5453);
@@ -192,11 +196,36 @@
             return center - rotated;
         }
 
+        // Smooth step with adjustable edge based on distance
+        float adaptiveSmooth(float edge0, float edge1, float x, float tension) {
+            if (SURFACE_TENSION_ENABLED <= 0.0) return smoothstep(edge0, edge1, x);
+            
+            // Adjust edge sharpness based on tension
+            float range = edge1 - edge0;
+            // Keep edges closer together for sharper blending
+            float adjustedEdge1 = edge1 + (range * tension * 0.2);
+            float adjustedEdge0 = edge0 - (range * tension * 0.1);
+            return smoothstep(adjustedEdge0, adjustedEdge1, x);
+        }
+
+        // Calculate distance between two metaballs
+        float metaballDistance(vec2 pos1, vec2 pos2) {
+            vec2 aspectRatio = vec2(canvasWidth / canvasHeight, 1.0);
+            pos1.x *= aspectRatio.x;
+            pos2.x *= aspectRatio.x;
+            return length(pos1 - pos2);
+        }
+
         void main() {
             vec2 point = gl_FragCoord.xy / vec2(canvasWidth, canvasHeight);
             float sum = 0.0;
             vec2 canvasCenter = vec2(0.5, 0.5);
+            float totalTension = 0.0;
+            
+            // Store positions for surface tension calculation
+            vec2 finalPositions[3];
 
+            // First pass: calculate final positions
             for (int i = 0; i < 3; i++) {
                 float delay = 0.15 * float(i);
                 float lerpFactor = (sin(time - delay) + 1.0) / 2.0;
@@ -220,12 +249,32 @@
                 // Mix with center position
                 position = mix(position, canvasCenter, lerpFactor * 0.95);
                 
-                sum += metaball(point, position, 0.003125);
+                finalPositions[i] = position;
             }
+
+            // Second pass: calculate metaball field with surface tension
+            for (int i = 0; i < 3; i++) {
+                float localTension = surfaceTensionFactor;
+                
+                // Adjust tension based on distance to other metaballs
+                for (int j = 0; j < 3; j++) {
+                    if (i != j) {
+                        float dist = metaballDistance(finalPositions[i], finalPositions[j]);
+                        // More gradual tension increase with tighter bounds
+                        localTension *= min(1.0 + smoothstep(0.2, 0.05, dist), 1.5);
+                    }
+                }
+                
+                sum += metaball(point, finalPositions[i], 0.003125);
+                totalTension += localTension;
+            }
+
+            // Average and clamp the tension with tighter bounds
+            totalTension = min(totalTension / 3.0, 0.8);
 
             float edge0 = 0.25;
             float edge1 = 0.27;
-            float alpha = smoothstep(edge0, edge1, sum);
+            float alpha = adaptiveSmooth(edge0, edge1, sum, totalTension);
             gl_FragColor = vec4(1.0, 1.0, 1.0, alpha);
         }
         `;
