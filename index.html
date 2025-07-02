@@ -15,15 +15,9 @@
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
         }
         
-        #canvas-container {
-            position: relative;
+        canvas {
             width: 800px;
             height: 800px;
-        }
-
-        canvas {
-            width: 100%;
-            height: 100%;
             display: block;
             background-color:#207DCA;
         }
@@ -166,79 +160,10 @@
             background: #2196F3;
             border-color: #2196F3;
         }
-
-        .control-button {
-            width: 100%;
-            padding: 8px;
-            margin: 10px 0;
-            background: rgba(255, 255, 255, 0.1);
-            border: 1px solid rgba(255, 255, 255, 0.2);
-            color: white;
-            border-radius: 5px;
-            cursor: pointer;
-            transition: all 0.3s ease;
-        }
-
-        .control-button:hover {
-            background: rgba(255, 255, 255, 0.2);
-        }
-
-        .well-indicator {
-            position: absolute;
-            pointer-events: none;
-            z-index: 900;
-            transform: translate(-50%, -50%);
-        }
-
-        .well-crosshair {
-            position: absolute;
-            width: 20px;
-            height: 20px;
-            left: 50%;
-            top: 50%;
-            transform: translate(-50%, -50%);
-        }
-
-        .well-crosshair::before,
-        .well-crosshair::after {
-            content: '';
-            position: absolute;
-            background: black;
-        }
-
-        .well-crosshair::before {
-            left: 50%;
-            height: 20px;
-            width: 2px;
-            transform: translateX(-50%);
-        }
-
-        .well-crosshair::after {
-            top: 50%;
-            width: 20px;
-            height: 2px;
-            transform: translateY(-50%);
-        }
-
-        .well-radius {
-            position: absolute;
-            border: 2px solid rgba(0, 0, 0, 0.3);
-            border-radius: 50%;
-            left: 50%;
-            top: 50%;
-            transform: translate(-50%, -50%);
-        }
-
-        /* Add hover effect for the canvas in placement mode */
-        canvas.placement-mode {
-            cursor: crosshair;
-        }
     </style>
 </head>
 <body>
-    <div id="canvas-container">
-        <canvas id="glcanvas" width="500" height="500"></canvas>
-    </div>
+    <canvas id="glcanvas" width="500" height="500"></canvas>
     
     <div id="controls-panel">
         <h3 style="margin-top: 0;">Effect Controls</h3>
@@ -275,7 +200,7 @@
             <div class="control-header">
                 <span>Velocity Color</span>
                 <label class="toggle-switch">
-                    <input type="checkbox" id="velocity-color-toggle" checked>
+                    <input type="checkbox" id="velocity-color-toggle">
                     <span class="toggle-slider"></span>
                 </label>
             </div>
@@ -289,7 +214,7 @@
             <div class="control-header">
                 <span>Distance Blend</span>
                 <label class="toggle-switch">
-                    <input type="checkbox" id="distance-color-toggle" checked>
+                    <input type="checkbox" id="distance-color-toggle">
                     <span class="toggle-slider"></span>
                 </label>
             </div>
@@ -308,7 +233,7 @@
             <div class="control-header">
                 <span>Mouse Force</span>
                 <label class="toggle-switch">
-                    <input type="checkbox" id="mouse-force-toggle" checked>
+                    <input type="checkbox" id="mouse-force-toggle">
                     <span class="toggle-slider"></span>
                 </label>
             </div>
@@ -339,7 +264,7 @@
             <div class="control-header">
                 <span>Viscous Damping</span>
                 <label class="toggle-switch">
-                    <input type="checkbox" id="viscous-damping-toggle" checked>
+                    <input type="checkbox" id="viscous-damping-toggle">
                     <span class="toggle-slider"></span>
                 </label>
             </div>
@@ -371,7 +296,7 @@
             <div class="control-header">
                 <span>Turbulence</span>
                 <label class="toggle-switch">
-                    <input type="checkbox" id="turbulence-toggle" checked>
+                    <input type="checkbox" id="turbulence-toggle">
                     <span class="toggle-slider"></span>
                 </label>
             </div>
@@ -387,7 +312,7 @@
             <div class="control-header">
                 <span>Angular Momentum</span>
                 <label class="toggle-switch">
-                    <input type="checkbox" id="angular-momentum-toggle" checked>
+                    <input type="checkbox" id="angular-momentum-toggle">
                     <span class="toggle-slider"></span>
                 </label>
             </div>
@@ -403,7 +328,7 @@
             <div class="control-header">
                 <span>Surface Tension</span>
                 <label class="toggle-switch">
-                    <input type="checkbox" id="surface-tension-toggle" checked>
+                    <input type="checkbox" id="surface-tension-toggle">
                     <span class="toggle-slider"></span>
                 </label>
             </div>
@@ -414,38 +339,41 @@
             </div>
         </div>
 
-        <!-- Gravity Well -->
+        <!-- Add after Surface Tension control group -->
+        <!-- Gravity Control -->
         <div class="control-group">
-            <h4 style="margin-top: 0;">Gravity Wells</h4>
-            
-            <!-- Well Placement Mode -->
             <div class="control-header">
-                <span>Well Placement Mode</span>
+                <span>Gravity</span>
                 <label class="toggle-switch">
-                    <input type="checkbox" id="well-placement-toggle">
+                    <input type="checkbox" id="gravity-toggle" checked>
                     <span class="toggle-slider"></span>
                 </label>
             </div>
+            <div class="slider-container">
+                <input type="range" id="gravity-slider" class="range-slider" 
+                       min="0.0" max="0.01" step="0.0005" value="0.002">
+                <span class="slider-value">Strength: <span id="gravity-value">0.002</span></span>
+            </div>
+        </div>
 
-            <!-- Clear Wells Button -->
-            <button id="clear-wells-button" class="control-button">Clear All Wells</button>
-
-            <!-- Well Settings -->
-            <div class="well-settings">
-                <h5>New Well Settings</h5>
-                <!-- Force Strength -->
-                <div class="slider-container">
-                    <input type="range" id="gravity-well-strength-slider" class="range-slider" 
-                           min="0.1" max="2.0" step="0.1" value="1.0">
-                    <span class="slider-value">Force: <span id="gravity-well-strength-value">1.0</span></span>
-                </div>
-
-                <!-- Effect Radius -->
-                <div class="slider-container">
-                    <input type="range" id="gravity-well-radius-slider" class="range-slider" 
-                           min="50" max="300" step="10" value="150">
-                    <span class="slider-value">Radius: <span id="gravity-well-radius-value">150</span>px</span>
-                </div>
+        <!-- Repulsion Controls -->
+        <div class="control-group">
+            <div class="control-header">
+                <span>Ball Repulsion</span>
+                <label class="toggle-switch">
+                    <input type="checkbox" id="repulsion-toggle" checked>
+                    <span class="toggle-slider"></span>
+                </label>
+            </div>
+            <div class="slider-container">
+                <input type="range" id="repulsion-slider" class="range-slider" 
+                       min="0.0" max="0.01" step="0.001" value="0.005">
+                <span class="slider-value">Strength: <span id="repulsion-value">0.005</span></span>
+            </div>
+            <div class="slider-container">
+                <input type="range" id="repulsion-radius-slider" class="range-slider" 
+                       min="0.1" max="0.5" step="0.05" value="0.2">
+                <span class="slider-value">Radius: <span id="repulsion-radius-value">0.2</span></span>
             </div>
         </div>
     </div>
@@ -507,82 +435,6 @@
         uniform float distanceColorEnabled;
         uniform float distanceColorIntensity;
 
-        // Gravity Well uniforms
-        const int MAX_GRAVITY_WELLS = 10;  // Maximum number of wells
-        uniform vec2 gravityWellPositions[MAX_GRAVITY_WELLS];
-        uniform float gravityWellStrengths[MAX_GRAVITY_WELLS];
-        uniform float gravityWellRadii[MAX_GRAVITY_WELLS];
-        uniform int activeWellCount;
-
-        // EFFECT CONTROLS
-        // ----------------------------
-        const float DAMPING_ENABLED = 0.0;  // 1.0 = on, 0.0 = off
-        float dampingFactor = 0.90;         // Increased damping (was 0.95)
-                                           // Lower value = stronger damping
-                                           // Try values: 0.95 (subtle), 0.80 (medium), 0.60 (strong)
-
-        const float VORTICITY_ENABLED = 0.0;  // 1.0 = on, 0.0 = off
-        float vorticityFactor = 0.9;         // Controls strength of the vortex effect
-                                            // Try values: 0.2 (subtle), 0.5 (medium), 1.0 (strong)
-
-        const float TURBULENCE_ENABLED = 1.0;  // 1.0 = on, 0.0 = off
-        float turbulenceFactor = 0.5;       // Controls strength of the turbulence
-                                           // Try values: 0.2 (subtle), 0.5 (medium), 1.0 (strong)
-
-        const float ANGULAR_MOMENTUM_ENABLED = 1.0;  // 1.0 = on, 0.0 = off
-        float angularMomentumFactor = 0.003;        // Controls strength of orbital motion
-                                                    // Try values: 0.002 (subtle), 0.003 (medium), 0.005 (strong)
-
-        const float SURFACE_TENSION_ENABLED = 1.0;  // 1.0 = on, 0.0 = off
-        float surfaceTensionFactor = 0.03;          // Controls strength of surface tension
-                                                   // Try values: 0.2 (subtle), 0.3 (medium), 0.5 (strong)
-
-        const float VISCOUS_DAMPING_ENABLED = 1.0;  // 1.0 = on, 0.0 = off
-        float viscosityFactor = 0.9;               // Controls strength of viscous damping
-                                                    // Try values: 0.99 (subtle), 0.98 (medium), 0.95 (strong)
-                                                    // Higher values = less damping
-
-        // Pseudo-random value generator
-        float rand(vec2 n) { 
-            return fract(sin(dot(n, vec2(12.9898, 78.233))) * 43758.5453);
-        }
-
-        // Smooth interpolation function
-        float smooth_rand(vec2 n) {
-            vec2 i = floor(n);
-            vec2 f = fract(n);
-            float a = rand(i);
-            float b = rand(i + vec2(1.0, 0.0));
-            float c = rand(i + vec2(0.0, 1.0));
-            float d = rand(i + vec2(1.0, 1.0));
-            vec2 u = f * f * (3.0 - 2.0 * f);
-            return mix(a, b, u.x) + (c - a) * u.y * (1.0 - u.x) + (d - b) * u.x * u.y;
-        }
-
-        // Turbulence function using multiple noise octaves
-        vec2 turbulence(vec2 pos, float t) {
-            if (TURBULENCE_ENABLED <= 0.0) return pos;
-
-            vec2 offset = vec2(0.0);
-            float scale = 4.0;  // Increased base scale for more visible effect
-            float weight = turbulenceFactor;  // Use turbulenceFactor directly as weight
-            
-            // Add multiple layers of noise
-            for (int i = 0; i < 3; i++) {
-                vec2 p = pos * scale + vec2(t * 0.2, t * -0.1);  // Increased time influence
-                float noise = smooth_rand(p);
-                offset += vec2(
-                    cos(noise * 6.28318),
-                    sin(noise * 6.28318)
-                ) * weight * 0.1;  // Scale the offset by a fixed amount
-                
-                scale *= 2.0;
-                weight *= 0.5;
-            }
-            
-            return pos + offset;
-        }
-
         float metaball(vec2 point, vec2 center, float radius) {
             vec2 aspectRatio = vec2(canvasWidth / canvasHeight, 1.0);
             point.x *= aspectRatio.x;
@@ -592,224 +444,29 @@
             return radius / (dx * dx + dy * dy);
         }
 
-        vec2 applyVortex(vec2 position, vec2 center, float t) {
-            vec2 toCenter = center - position;
-            float dist = length(toCenter);
-            
-            // Normalize distance to control the effect strength
-            float normalizedDist = clamp(dist, 0.0, 1.0);
-            
-            // Make the rotation slower and more controlled
-            // Rotation is faster when closer to center, but capped
-            float angle = t * vorticityFactor * 0.2 * (1.0 - normalizedDist * 0.8);
-            
-            // Rotate the position around the center
-            float s = sin(angle);
-            float c = cos(angle);
-            vec2 rotated = vec2(
-                toCenter.x * c - toCenter.y * s,
-                toCenter.x * s + toCenter.y * c
-            );
-            
-            // Add a small inward pull to maintain the spiral
-            float pullStrength = 0.02 * vorticityFactor;
-            rotated = rotated * (1.0 - pullStrength);
-            
-            // Ensure the position stays within bounds
-            vec2 newPos = center - rotated;
-            return clamp(newPos, vec2(0.0), vec2(1.0));
-        }
-
-        vec2 applyAngularMomentum(vec2 position, vec2 center, float t) {
-            if (ANGULAR_MOMENTUM_ENABLED <= 0.0) return position;
-
-            vec2 toCenter = center - position;
-            float dist = length(toCenter);
-            
-            // Avoid division by zero and extreme values
-            dist = max(dist, 0.1);
-            
-            // Calculate angular velocity based on distance
-            // Closer objects rotate faster
-            float angularVelocity = 1.0 / max(dist, 0.1);
-            
-            // Calculate rotation angle
-            float angle = t * angularMomentumFactor * angularVelocity;
-            
-            // Rotate the position around the center
-            float s = sin(angle);
-            float c = cos(angle);
-            vec2 rotated = vec2(
-                toCenter.x * c - toCenter.y * s,
-                toCenter.x * s + toCenter.y * c
-            );
-            
-            return center - rotated;
-        }
-
-        // Smooth step with adjustable edge based on distance
-        float adaptiveSmooth(float edge0, float edge1, float x, float tension) {
-            if (SURFACE_TENSION_ENABLED <= 0.0) return smoothstep(edge0, edge1, x);
-            
-            // Adjust edge sharpness based on tension
-            float range = edge1 - edge0;
-            // Keep edges closer together for sharper blending
-            float adjustedEdge1 = edge1 + (range * tension * 0.2);
-            float adjustedEdge0 = edge0 - (range * tension * 0.1);
-            return smoothstep(adjustedEdge0, adjustedEdge1, x);
-        }
-
-        // Calculate distance between two metaballs
-        float metaballDistance(vec2 pos1, vec2 pos2) {
-            vec2 aspectRatio = vec2(canvasWidth / canvasHeight, 1.0);
-            pos1.x *= aspectRatio.x;
-            pos2.x *= aspectRatio.x;
-            return length(pos1 - pos2);
-        }
-
-        // Calculate velocity-based damping
-        vec2 applyViscousDamping(vec2 currentPos, vec2 prevPos) {
-            if (VISCOUS_DAMPING_ENABLED <= 0.0) return currentPos;
-            
-            // Calculate velocity
-            vec2 velocity = currentPos - prevPos;
-            
-            // Apply non-linear damping based on velocity magnitude
-            float speed = length(velocity);
-            float dampingStrength = mix(1.0, viscosityFactor, smoothstep(0.0, 0.1, speed));
-            
-            // Apply damping to the movement
-            return prevPos + velocity * dampingStrength;
-        }
-
-        // Color blending functions
-        vec3 blendColors(vec3 color1, vec3 color2, float factor) {
-            return mix(color1, color2, factor);
-        }
-
-        vec3 getVelocityColor(vec2 position, vec2 prevPosition) {
-            if (velocityColorEnabled <= 0.0) return baseColor;
-            
-            vec2 velocity = position - prevPosition;
-            float speed = length(velocity) * 20.0; // Scale for better visual
-            float colorFactor = smoothstep(0.0, velocityColorIntensity, speed);
-            
-            return blendColors(baseColor, secondaryColor, colorFactor);
-        }
-
-        vec3 getDistanceColor(vec2 position, float fieldStrength) {
-            if (distanceColorEnabled <= 0.0) return baseColor;
-            
-            float distanceFactor = smoothstep(0.25, 0.27, fieldStrength) * distanceColorIntensity;
-            return blendColors(baseColor, secondaryColor, distanceFactor);
-        }
-
-        vec2 applyMouseForce(vec2 position) {
-            if (mouseForceEnabled <= 0.0) return position;
-
-            vec2 toMouse = mousePos - position;
-            float dist = length(toMouse);
-            
-            // Convert pixel radius to normalized space
-            float maxRadius = mouseForceRadius / 500.0;
-            
-            if (dist < 0.001) return position; // Prevent division by zero
-            if (dist > maxRadius) return position;
-            
-            // Stronger force calculation
-            float normalizedDist = dist / maxRadius;
-            float forceMagnitude = (1.0 - normalizedDist * normalizedDist) * mouseForceStrength * 0.2;
-            
-            // Apply force direction (attract or repel)
-            return position + normalize(toMouse) * forceMagnitude * mouseForceType;
-        }
-
-        vec2 applyGravityWells(vec2 position) {
-            vec2 totalForce = vec2(0.0);
-            
-            for(int i = 0; i < MAX_GRAVITY_WELLS; i++) {
-                if(i >= activeWellCount) break;
-                
-                vec2 toWell = gravityWellPositions[i] - position;
-                float dist = length(toWell);
-                
-                // Convert pixel radius to normalized space
-                float maxRadius = gravityWellRadii[i] / 500.0;
-                
-                if (dist < 0.001) continue; // Prevent division by zero
-                if (dist > maxRadius) continue;
-                
-                // Calculate gravitational force
-                float normalizedDist = dist / maxRadius;
-                float forceMagnitude = (1.0 - normalizedDist * normalizedDist) * gravityWellStrengths[i] * 0.2;
-                
-                // Accumulate force
-                totalForce += normalize(toWell) * forceMagnitude;
-            }
-            
-            return position + totalForce;
-        }
-
         void main() {
             vec2 point = gl_FragCoord.xy / vec2(canvasWidth, canvasHeight);
             float sum = 0.0;
-            vec2 canvasCenter = vec2(0.5, 0.5);
-            float totalTension = 0.0;
-            vec3 finalColor = baseColor;
+            vec3 finalColor = vec3(1.0);
 
-            vec2 finalPositions[3];
-            vec2 previousPositions[3];
-
-            // First pass: calculate positions
+            // Calculate metaball field and colors
             for (int i = 0; i < 3; i++) {
-                float delay = 0.15 * float(i);
-                float lerpFactor = (sin(time - delay) + 1.0) / 2.0;
-                
-                vec2 position = metaballPositions[i];
-                vec2 prevPosition = position;
-
-                // Apply mouse force
-                position = applyMouseForce(position);
-                
-                // Apply gravity wells
-                position = applyGravityWells(position);
-                
-                // Apply other effects
-                position = turbulence(position, time);
-                position = applyAngularMomentum(position, canvasCenter, time);
-                if (VORTICITY_ENABLED > 0.0) {
-                    position = applyVortex(position, canvasCenter, time);
-                }
-                
-                // Reduced center pull and damping
-                lerpFactor *= 0.5;
-                position = mix(position, canvasCenter, lerpFactor);
-                position = applyViscousDamping(position, prevPosition);
-                
-                finalPositions[i] = position;
-                previousPositions[i] = prevPosition;
-            }
-
-            // Second pass: calculate metaball field
-            for (int i = 0; i < 3; i++) {
-                float fieldStrength = metaball(point, finalPositions[i], 0.003125);
+                float fieldStrength = metaball(point, metaballPositions[i], 0.003125);
                 sum += fieldStrength;
 
                 // Calculate colors
-                vec3 velocityBasedColor = getVelocityColor(finalPositions[i], previousPositions[i]);
-                vec3 distanceBasedColor = getDistanceColor(finalPositions[i], fieldStrength);
+                vec3 velocityBasedColor = velocityColorEnabled > 0.0 ? baseColor : baseColor;
+                vec3 distanceBasedColor = distanceColorEnabled > 0.0 ? 
+                    mix(baseColor, secondaryColor, smoothstep(0.0, distanceColorIntensity, fieldStrength)) : 
+                    baseColor;
                 
-                // Blend colors based on field strength
-                finalColor = blendColors(
-                    finalColor,
-                    blendColors(velocityBasedColor, distanceBasedColor, 0.5),
-                    fieldStrength / (sum + 0.01)
-                );
+                float blendFactor = fieldStrength / (sum + 0.001);
+                finalColor = mix(finalColor, mix(velocityBasedColor, distanceBasedColor, 0.5), blendFactor);
             }
 
             float edge0 = 0.25;
             float edge1 = 0.27;
-            float alpha = adaptiveSmooth(edge0, edge1, sum, totalTension);
+            float alpha = smoothstep(edge0, edge1, sum);
             gl_FragColor = vec4(finalColor, alpha);
         }
         `;
@@ -855,6 +512,7 @@
     
         const timeLocation = gl.getUniformLocation(shaderProgram, 'time');
         let startTime = Date.now();
+        let lastTime = startTime;
 
         // Control uniform locations
         const uniformLocations = {
@@ -867,7 +525,12 @@
             angularMomentumEnabled: gl.getUniformLocation(shaderProgram, 'ANGULAR_MOMENTUM_ENABLED'),
             angularMomentumFactor: gl.getUniformLocation(shaderProgram, 'angularMomentumFactor'),
             surfaceTensionEnabled: gl.getUniformLocation(shaderProgram, 'SURFACE_TENSION_ENABLED'),
-            surfaceTensionFactor: gl.getUniformLocation(shaderProgram, 'surfaceTensionFactor')
+            surfaceTensionFactor: gl.getUniformLocation(shaderProgram, 'surfaceTensionFactor'),
+            gravityEnabled: gl.getUniformLocation(shaderProgram, 'GRAVITY_ENABLED'),
+            gravityStrength: gl.getUniformLocation(shaderProgram, 'gravityStrength'),
+            repulsionEnabled: gl.getUniformLocation(shaderProgram, 'REPULSION_ENABLED'),
+            repulsionStrength: gl.getUniformLocation(shaderProgram, 'repulsionStrength'),
+            repulsionRadius: gl.getUniformLocation(shaderProgram, 'repulsionRadius')
         };
 
         // Add color uniform locations
@@ -880,6 +543,63 @@
             distanceColorEnabled: gl.getUniformLocation(shaderProgram, 'distanceColorEnabled'),
             distanceColorIntensity: gl.getUniformLocation(shaderProgram, 'distanceColorIntensity')
         };
+
+        // Initialize color uniforms
+        gl.uniform3fv(colorUniforms.baseColor, hexToRGB('#FFFFFF')); // White base color
+        gl.uniform3fv(colorUniforms.secondaryColor, hexToRGB('#88CCFF')); // Light blue secondary color
+        gl.uniform3fv(colorUniforms.backgroundColor, hexToRGB('#207DCA')); // Background color
+        gl.uniform1f(colorUniforms.velocityColorEnabled, 0.0);
+        gl.uniform1f(colorUniforms.velocityColorIntensity, 1.0);
+        gl.uniform1f(colorUniforms.distanceColorEnabled, 0.0);
+        gl.uniform1f(colorUniforms.distanceColorIntensity, 1.0);
+
+        // Add gravity controls
+        document.getElementById('gravity-toggle').addEventListener('change', function(e) {
+            gl.uniform1f(uniformLocations.gravityEnabled, e.target.checked ? 1.0 : 0.0);
+        });
+
+        document.getElementById('gravity-slider').addEventListener('input', function(e) {
+            const value = parseFloat(e.target.value);
+            gl.uniform1f(uniformLocations.gravityStrength, value);
+            document.getElementById('gravity-value').textContent = value.toFixed(3);
+        });
+
+        // Initialize gravity uniform
+        gl.uniform1f(uniformLocations.gravityStrength, 0.002);
+
+        // Add color control event listeners
+        document.getElementById('base-color').addEventListener('input', function(e) {
+            gl.uniform3fv(colorUniforms.baseColor, hexToRGB(e.target.value));
+        });
+
+        document.getElementById('secondary-color').addEventListener('input', function(e) {
+            gl.uniform3fv(colorUniforms.secondaryColor, hexToRGB(e.target.value));
+        });
+
+        document.getElementById('background-color').addEventListener('input', function(e) {
+            gl.uniform3fv(colorUniforms.backgroundColor, hexToRGB(e.target.value));
+            document.getElementById('glcanvas').style.backgroundColor = e.target.value;
+        });
+
+        document.getElementById('velocity-color-toggle').addEventListener('change', function(e) {
+            gl.uniform1f(colorUniforms.velocityColorEnabled, e.target.checked ? 1.0 : 0.0);
+        });
+
+        document.getElementById('velocity-color-slider').addEventListener('input', function(e) {
+            const value = parseFloat(e.target.value);
+            gl.uniform1f(colorUniforms.velocityColorIntensity, value);
+            document.getElementById('velocity-color-value').textContent = value.toFixed(1);
+        });
+
+        document.getElementById('distance-color-toggle').addEventListener('change', function(e) {
+            gl.uniform1f(colorUniforms.distanceColorEnabled, e.target.checked ? 1.0 : 0.0);
+        });
+
+        document.getElementById('distance-color-slider').addEventListener('input', function(e) {
+            const value = parseFloat(e.target.value);
+            gl.uniform1f(colorUniforms.distanceColorIntensity, value);
+            document.getElementById('distance-color-value').textContent = value.toFixed(1);
+        });
 
         // Add mouse tracking
         let mouseX = 0;
@@ -937,284 +657,127 @@
             });
         }
 
-        // Initialize mouse controls with stronger default values
-        setupMouseControls();
-        gl.uniform2f(gl.getUniformLocation(shaderProgram, 'mousePos'), 0.5, 0.5);
-        gl.uniform1f(gl.getUniformLocation(shaderProgram, 'mouseForceEnabled'), document.getElementById('mouse-force-toggle').checked ? 1.0 : 0.0);
-        gl.uniform1f(gl.getUniformLocation(shaderProgram, 'mouseForceStrength'), 1.5); // Increased default strength
-        gl.uniform1f(gl.getUniformLocation(shaderProgram, 'mouseForceRadius'), 200.0); // Increased default radius
-        gl.uniform1f(gl.getUniformLocation(shaderProgram, 'mouseForceType'), 1.0);
-
-        // Update mouse force slider default
-        document.getElementById('mouse-force-slider').value = 1.5;
-        document.getElementById('mouse-force-value').textContent = '1.5';
+        // Maximum number of metaballs we'll support
+        const maxMetaballs = 3;
         
-        // Update radius slider default
-        document.getElementById('mouse-radius-slider').value = 200;
-        document.getElementById('mouse-radius-value').textContent = '200';
-
-        // Control event listeners
-        function setupControlListeners() {
-            // Viscous Damping
-            document.getElementById('viscous-damping-toggle').addEventListener('change', function(e) {
-                gl.uniform1f(uniformLocations.viscousDampingEnabled, e.target.checked ? 1.0 : 0.0);
-            });
-            document.getElementById('viscous-damping-slider').addEventListener('input', function(e) {
-                const value = parseFloat(e.target.value);
-                gl.uniform1f(uniformLocations.viscosityFactor, value);
-                document.getElementById('viscous-damping-value').textContent = value.toFixed(2);
-            });
-
-            // Vorticity
-            document.getElementById('vorticity-toggle').addEventListener('change', function(e) {
-                gl.uniform1f(uniformLocations.vorticityEnabled, e.target.checked ? 1.0 : 0.0);
-            });
-            document.getElementById('vorticity-slider').addEventListener('input', function(e) {
-                const value = parseFloat(e.target.value);
-                gl.uniform1f(uniformLocations.vorticityFactor, value);
-                document.getElementById('vorticity-value').textContent = value.toFixed(2);
-            });
-
-            // Turbulence
-            document.getElementById('turbulence-toggle').addEventListener('change', function(e) {
-                gl.uniform1f(uniformLocations.turbulenceEnabled, e.target.checked ? 1.0 : 0.0);
-            });
-            document.getElementById('turbulence-slider').addEventListener('input', function(e) {
-                const value = parseFloat(e.target.value);
-                gl.uniform1f(uniformLocations.turbulenceFactor, value);
-                document.getElementById('turbulence-value').textContent = value.toFixed(2);
-            });
-
-            // Angular Momentum
-            document.getElementById('angular-momentum-toggle').addEventListener('change', function(e) {
-                gl.uniform1f(uniformLocations.angularMomentumEnabled, e.target.checked ? 1.0 : 0.0);
-            });
-            document.getElementById('angular-momentum-slider').addEventListener('input', function(e) {
-                const value = parseFloat(e.target.value);
-                gl.uniform1f(uniformLocations.angularMomentumFactor, value);
-                document.getElementById('angular-momentum-value').textContent = value.toFixed(3);
-            });
-
-            // Surface Tension
-            document.getElementById('surface-tension-toggle').addEventListener('change', function(e) {
-                gl.uniform1f(uniformLocations.surfaceTensionEnabled, e.target.checked ? 1.0 : 0.0);
-            });
-            document.getElementById('surface-tension-slider').addEventListener('input', function(e) {
-                const value = parseFloat(e.target.value);
-                gl.uniform1f(uniformLocations.surfaceTensionFactor, value);
-                document.getElementById('surface-tension-value').textContent = value.toFixed(2);
-            });
-        }
-
-        // Add color control listeners
-        function setupColorControls() {
-            // Base Color
-            document.getElementById('base-color').addEventListener('input', function(e) {
-                const rgb = hexToRGB(e.target.value);
-                gl.uniform3fv(colorUniforms.baseColor, rgb);
-            });
-
-            // Secondary Color
-            document.getElementById('secondary-color').addEventListener('input', function(e) {
-                const rgb = hexToRGB(e.target.value);
-                gl.uniform3fv(colorUniforms.secondaryColor, rgb);
-            });
-
-            // Background Color
-            document.getElementById('background-color').addEventListener('input', function(e) {
-                const rgb = hexToRGB(e.target.value);
-                gl.uniform3fv(colorUniforms.backgroundColor, rgb);
-                canvas.style.backgroundColor = e.target.value;
-            });
-
-            // Velocity Color
-            document.getElementById('velocity-color-toggle').addEventListener('change', function(e) {
-                gl.uniform1f(colorUniforms.velocityColorEnabled, e.target.checked ? 1.0 : 0.0);
-            });
-            document.getElementById('velocity-color-slider').addEventListener('input', function(e) {
-                const value = parseFloat(e.target.value);
-                gl.uniform1f(colorUniforms.velocityColorIntensity, value);
-                document.getElementById('velocity-color-value').textContent = value.toFixed(1);
-            });
-
-            // Distance Color
-            document.getElementById('distance-color-toggle').addEventListener('change', function(e) {
-                gl.uniform1f(colorUniforms.distanceColorEnabled, e.target.checked ? 1.0 : 0.0);
-            });
-            document.getElementById('distance-color-slider').addEventListener('input', function(e) {
-                const value = parseFloat(e.target.value);
-                gl.uniform1f(colorUniforms.distanceColorIntensity, value);
-                document.getElementById('distance-color-value').textContent = value.toFixed(1);
-            });
-        }
-
-        // Add gravity well uniform locations
-        const gravityWellUniforms = {
-            gravityWellPositions: gl.getUniformLocation(shaderProgram, 'gravityWellPositions'),
-            gravityWellStrengths: gl.getUniformLocation(shaderProgram, 'gravityWellStrengths'),
-            gravityWellRadii: gl.getUniformLocation(shaderProgram, 'gravityWellRadii'),
-            activeWellCount: gl.getUniformLocation(shaderProgram, 'activeWellCount')
+        // Store metaball state
+        let metaballState = {
+            positions: [],
+            velocities: [],
+            lastPositions: [] // For calculating velocity
         };
 
-        // Gravity well management
-        const wells = [];
-        let isPlacementMode = false;
-        let nextWellId = 0;
-
-        function createWell(x, y, strength, radius) {
-            const well = {
-                id: nextWellId++,
-                x: x,
-                y: y,
-                strength: strength,
-                radius: radius
-            };
-
-            // Create visual indicators
-            const container = document.createElement('div');
-            container.className = 'well-indicator';
-            container.style.left = (x * 100) + '%';
-            container.style.top = (y * 100) + '%';
-
-            const crosshair = document.createElement('div');
-            crosshair.className = 'well-crosshair';
-
-            const radiusCircle = document.createElement('div');
-            radiusCircle.className = 'well-radius';
-            radiusCircle.style.width = (radius * 2) + 'px';
-            radiusCircle.style.height = (radius * 2) + 'px';
-
-            container.appendChild(crosshair);
-            container.appendChild(radiusCircle);
-            document.getElementById('canvas-container').appendChild(container);
-
-            well.element = container;
-            wells.push(well);
-            updateWellUniforms();
+        // Initialize metaball positions in a circle
+        function initializeMetaballs() {
+            const radius = 0.4;
+            const angleStep = (Math.PI * 2) / maxMetaballs;
+            
+            for (let i = 0; i < maxMetaballs; i++) {
+                const angle = -Math.PI/2 + (i * angleStep);
+                const x = Math.cos(angle) * radius + 0.5;
+                const y = Math.sin(angle) * radius + 0.5;
+                
+                metaballState.positions.push(x, y);
+                metaballState.velocities.push(0, 0);
+                metaballState.lastPositions.push(x, y);
+            }
         }
 
-        function clearWells() {
-            wells.forEach(well => well.element.remove());
-            wells.length = 0;
-            updateWellUniforms();
-        }
+        function updatePhysics(deltaTime) {
+            for (let i = 0; i < maxMetaballs; i++) {
+                const idx = i * 2;
+                let x = metaballState.positions[idx];
+                let y = metaballState.positions[idx + 1];
+                let vx = metaballState.velocities[idx];
+                let vy = metaballState.velocities[idx + 1];
 
-        function updateWellUniforms() {
-            const positions = new Float32Array(MAX_GRAVITY_WELLS * 2);
-            const strengths = new Float32Array(MAX_GRAVITY_WELLS);
-            const radii = new Float32Array(MAX_GRAVITY_WELLS);
+                // Store last position
+                metaballState.lastPositions[idx] = x;
+                metaballState.lastPositions[idx + 1] = y;
 
-            wells.forEach((well, i) => {
-                if (i >= MAX_GRAVITY_WELLS) return;
-                positions[i * 2] = well.x;
-                positions[i * 2 + 1] = well.y;
-                strengths[i] = well.strength;
-                radii[i] = well.radius;
-            });
-
-            gl.uniform2fv(gravityWellUniforms.gravityWellPositions, positions);
-            gl.uniform1fv(gravityWellUniforms.gravityWellStrengths, strengths);
-            gl.uniform1fv(gravityWellUniforms.gravityWellRadii, radii);
-            gl.uniform1i(gravityWellUniforms.activeWellCount, wells.length);
-        }
-
-        // Update gravity well controls setup
-        function setupGravityWellControls() {
-            const placementToggle = document.getElementById('well-placement-toggle');
-            const clearButton = document.getElementById('clear-wells-button');
-            const canvas = document.getElementById('glcanvas');
-
-            placementToggle.addEventListener('change', function(e) {
-                isPlacementMode = e.target.checked;
-                canvas.classList.toggle('placement-mode', isPlacementMode);
-            });
-
-            clearButton.addEventListener('click', clearWells);
-
-            canvas.addEventListener('click', function(e) {
-                if (!isPlacementMode) return;
-
-                const rect = canvas.getBoundingClientRect();
-                const scaleX = canvas.width / rect.width;
-                const scaleY = canvas.height / rect.height;
-                
-                const x = ((e.clientX - rect.left) * scaleX) / canvas.width;
-                const y = 1.0 - ((e.clientY - rect.top) * scaleY) / canvas.height;
-                
-                const strength = parseFloat(document.getElementById('gravity-well-strength-slider').value);
-                const radius = parseFloat(document.getElementById('gravity-well-radius-slider').value);
-                
-                if (wells.length < MAX_GRAVITY_WELLS) {
-                    createWell(x, y, strength, radius);
+                // Apply gravity
+                if (document.getElementById('gravity-toggle').checked) {
+                    const toCenter = [0.5 - x, 0.5 - y];
+                    const dist = Math.sqrt(toCenter[0] * toCenter[0] + toCenter[1] * toCenter[1]);
+                    const gravityStrength = parseFloat(document.getElementById('gravity-slider').value);
+                    
+                    if (dist > 0.001) {
+                        const force = gravityStrength;
+                        vx += (toCenter[0] / dist) * force;
+                        vy += (toCenter[1] / dist) * force;
+                    }
                 }
-            });
+
+                // Apply repulsion
+                if (document.getElementById('repulsion-toggle').checked) {
+                    const repulsionStrength = parseFloat(document.getElementById('repulsion-slider').value);
+                    const repulsionRadius = parseFloat(document.getElementById('repulsion-radius-slider').value);
+
+                    for (let j = 0; j < maxMetaballs; j++) {
+                        if (i === j) continue;
+                        
+                        const dx = x - metaballState.positions[j * 2];
+                        const dy = y - metaballState.positions[j * 2 + 1];
+                        const dist = Math.sqrt(dx * dx + dy * dy);
+                        
+                        if (dist < repulsionRadius && dist > 0.001) {
+                            const force = repulsionStrength * (1.0 - dist / repulsionRadius);
+                            vx += (dx / dist) * force;
+                            vy += (dy / dist) * force;
+                        }
+                    }
+                }
+
+                // Apply damping
+                vx *= 0.99;
+                vy *= 0.99;
+
+                // Update position
+                x += vx;
+                y += vy;
+
+                // Bounce off walls
+                if (x < 0) { x = 0; vx *= -0.8; }
+                if (x > 1) { x = 1; vx *= -0.8; }
+                if (y < 0) { y = 0; vy *= -0.8; }
+                if (y > 1) { y = 1; vy *= -0.8; }
+
+                // Store updated state
+                metaballState.positions[idx] = x;
+                metaballState.positions[idx + 1] = y;
+                metaballState.velocities[idx] = vx;
+                metaballState.velocities[idx + 1] = vy;
+            }
         }
 
-        // Initialize all controls
-        setupControlListeners();
-        setupColorControls();
-        setupMouseControls();
-        setupGravityWellControls();
-
-        // Set initial uniform values
-        gl.uniform1f(uniformLocations.viscousDampingEnabled, document.getElementById('viscous-damping-toggle').checked ? 1.0 : 0.0);
-        gl.uniform1f(uniformLocations.viscosityFactor, parseFloat(document.getElementById('viscous-damping-slider').value));
-        gl.uniform1f(uniformLocations.vorticityEnabled, document.getElementById('vorticity-toggle').checked ? 1.0 : 0.0);
-        gl.uniform1f(uniformLocations.vorticityFactor, parseFloat(document.getElementById('vorticity-slider').value));
-        gl.uniform1f(uniformLocations.turbulenceEnabled, document.getElementById('turbulence-toggle').checked ? 1.0 : 0.0);
-        gl.uniform1f(uniformLocations.turbulenceFactor, parseFloat(document.getElementById('turbulence-slider').value));
-        gl.uniform1f(uniformLocations.angularMomentumEnabled, document.getElementById('angular-momentum-toggle').checked ? 1.0 : 0.0);
-        gl.uniform1f(uniformLocations.angularMomentumFactor, parseFloat(document.getElementById('angular-momentum-slider').value));
-        gl.uniform1f(uniformLocations.surfaceTensionEnabled, document.getElementById('surface-tension-toggle').checked ? 1.0 : 0.0);
-        gl.uniform1f(uniformLocations.surfaceTensionFactor, parseFloat(document.getElementById('surface-tension-slider').value));
-
-        // Add color initial uniform values
-        gl.uniform3fv(colorUniforms.baseColor, hexToRGB(document.getElementById('base-color').value));
-        gl.uniform3fv(colorUniforms.secondaryColor, hexToRGB(document.getElementById('secondary-color').value));
-        gl.uniform3fv(colorUniforms.backgroundColor, hexToRGB(document.getElementById('background-color').value));
-        gl.uniform1f(colorUniforms.velocityColorEnabled, document.getElementById('velocity-color-toggle').checked ? 1.0 : 0.0);
-        gl.uniform1f(colorUniforms.velocityColorIntensity, parseFloat(document.getElementById('velocity-color-slider').value));
-        gl.uniform1f(colorUniforms.distanceColorEnabled, document.getElementById('distance-color-toggle').checked ? 1.0 : 0.0);
-        gl.uniform1f(colorUniforms.distanceColorIntensity, parseFloat(document.getElementById('distance-color-slider').value));
-
-        // Maximum number of metaballs we'll support
-        const maxMetaballs = 3; // Changed from 9 to 3
-
-        // ✅ SAFE TO MODIFY – Calculate and update metaball positions in JavaScript
         function updateMetaballPositions(currentTime) {
-            const metaballPositions = [];
-            
-            // SPREAD CONTROL
-            // -------------
-            // radius: Controls how far apart the metaballs are in their circular arrangement
-            // Current value: 0.75 for large spread
-            // - Decrease to keep metaballs closer together (try 0.4)
-            // - Increase to spread them further apart
-            // Note: This works with the field strength in the shader (0.003125)
-            // If you change one, you might need to adjust the other
-            const radius = 0.4; // Reduced from 0.75 to keep balls closer together
-
-            for (let i = 0; i < maxMetaballs; i++) {
-                const angle = (i / maxMetaballs) * Math.PI * 2;
-                metaballPositions.push(Math.cos(angle) * radius + 0.5);
-                metaballPositions.push(Math.sin(angle) * radius + 0.5);
+            // First frame initialization
+            if (metaballState.positions.length === 0) {
+                initializeMetaballs();
             }
-            return metaballPositions;
+
+            // Calculate deltaTime
+            const deltaTime = (currentTime - lastTime) / 1000.0;
+            lastTime = currentTime;
+
+            // Update physics
+            updatePhysics(deltaTime);
+
+            // Update shader uniforms
+            for (let i = 0; i < maxMetaballs; i++) {
+                const posLocation = gl.getUniformLocation(shaderProgram, `metaballPositions[${i}]`);
+                gl.uniform2f(posLocation, metaballState.positions[i*2], metaballState.positions[i*2+1]);
+            }
         }
-    
-        // ✅ SAFE TO MODIFY – Animation loop (this is where you control movement)
-        function animate() {
-            let currentTime = ((Date.now() - startTime) / 1000.0) * 2; // Speed factor of 2
 
-            gl.uniform1f(timeLocation, currentTime);
+        function animate() {
+            const currentTime = Date.now();
+            const deltaTime = (currentTime - lastTime) / 1000.0;
+            lastTime = currentTime;
+
+            gl.uniform1f(timeLocation, (currentTime - startTime) / 1000.0 * 2);
             
-            const metaballPositions = updateMetaballPositions(currentTime);
-            // CRITICAL FOR RENDERING – Pass positions to shader
-            for (let i = 0; i < maxMetaballs; i++) {
-                const uniformLocation = gl.getUniformLocation(shaderProgram, `metaballPositions[${i}]`);
-                gl.uniform2fv(uniformLocation, metaballPositions.slice(i * 2, i * 2 + 2));
-            }
-            
+            updateMetaballPositions(currentTime);
             draw();
             requestAnimationFrame(animate);
         }
@@ -1237,6 +800,28 @@
         const b = parseInt(hex.slice(5, 7), 16) / 255;
         return [r, g, b];
     }
+
+    // Add repulsion controls
+    document.getElementById('repulsion-toggle').addEventListener('change', function(e) {
+        gl.uniform1f(uniformLocations.repulsionEnabled, e.target.checked ? 1.0 : 0.0);
+    });
+
+    document.getElementById('repulsion-slider').addEventListener('input', function(e) {
+        const value = parseFloat(e.target.value);
+        gl.uniform1f(uniformLocations.repulsionStrength, value);
+        document.getElementById('repulsion-value').textContent = value.toFixed(3);
+    });
+
+    document.getElementById('repulsion-radius-slider').addEventListener('input', function(e) {
+        const value = parseFloat(e.target.value);
+        gl.uniform1f(uniformLocations.repulsionRadius, value);
+        document.getElementById('repulsion-radius-value').textContent = value.toFixed(2);
+    });
+
+    // Initialize repulsion uniforms
+    gl.uniform1f(uniformLocations.repulsionEnabled, 0.0);  // Start disabled
+    gl.uniform1f(uniformLocations.repulsionStrength, 0.005);  // Default strength
+    gl.uniform1f(uniformLocations.repulsionRadius, 0.2);  // Default radius
     </script>
     
 </body>
