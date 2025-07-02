@@ -15,11 +15,46 @@
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
         }
         
-        canvas {
+        #canvas-container {
+            position: relative;
             width: 800px;
             height: 800px;
+        }
+
+        canvas {
+            width: 100%;
+            height: 100%;
             display: block;
             background-color:#207DCA;
+        }
+
+        #crosshair {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            pointer-events: none;
+            z-index: 1000;
+            width: 20px;
+            height: 20px;
+        }
+
+        .crosshair-vertical {
+            position: absolute;
+            width: 2px;
+            height: 20px;
+            background: black;
+            left: 50%;
+            transform: translateX(-50%);
+        }
+
+        .crosshair-horizontal {
+            position: absolute;
+            width: 20px;
+            height: 2px;
+            background: black;
+            top: 50%;
+            transform: translateY(-50%);
         }
 
         #controls-panel {
@@ -163,7 +198,13 @@
     </style>
 </head>
 <body>
-    <canvas id="glcanvas" width="500" height="500"></canvas>
+    <div id="canvas-container">
+        <canvas id="glcanvas" width="500" height="500"></canvas>
+        <div id="crosshair">
+            <div class="crosshair-vertical"></div>
+            <div class="crosshair-horizontal"></div>
+        </div>
+    </div>
     
     <div id="controls-panel">
         <h3 style="margin-top: 0;">Effect Controls</h3>
@@ -340,7 +381,7 @@
         </div>
     </div>
 
-    <script>
+<script>
     function createShader(gl, type, source) {
         const shader = gl.createShader(type);
         gl.shaderSource(shader, source);
@@ -613,7 +654,7 @@
             vec2 canvasCenter = vec2(0.5, 0.5);
             float totalTension = 0.0;
             vec3 finalColor = baseColor;
-            
+
             vec2 finalPositions[3];
             vec2 previousPositions[3];
 
