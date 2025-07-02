@@ -553,6 +553,36 @@
         gl.uniform1f(colorUniforms.distanceColorEnabled, 0.0);
         gl.uniform1f(colorUniforms.distanceColorIntensity, 1.0);
 
+        // Initialize toggle states and uniforms
+        gl.uniform1f(uniformLocations.viscousDampingEnabled, 0.0);
+        gl.uniform1f(uniformLocations.vorticityEnabled, 0.0);
+        gl.uniform1f(uniformLocations.turbulenceEnabled, 0.0);
+        gl.uniform1f(uniformLocations.angularMomentumEnabled, 0.0);
+        gl.uniform1f(uniformLocations.surfaceTensionEnabled, 0.0);
+        gl.uniform1f(uniformLocations.gravityEnabled, 1.0);  // Start enabled
+        gl.uniform1f(uniformLocations.repulsionEnabled, 1.0);  // Start enabled
+
+        // Add toggle event listeners
+        document.getElementById('viscous-damping-toggle').addEventListener('change', function(e) {
+            gl.uniform1f(uniformLocations.viscousDampingEnabled, e.target.checked ? 1.0 : 0.0);
+        });
+
+        document.getElementById('vorticity-toggle').addEventListener('change', function(e) {
+            gl.uniform1f(uniformLocations.vorticityEnabled, e.target.checked ? 1.0 : 0.0);
+        });
+
+        document.getElementById('turbulence-toggle').addEventListener('change', function(e) {
+            gl.uniform1f(uniformLocations.turbulenceEnabled, e.target.checked ? 1.0 : 0.0);
+        });
+
+        document.getElementById('angular-momentum-toggle').addEventListener('change', function(e) {
+            gl.uniform1f(uniformLocations.angularMomentumEnabled, e.target.checked ? 1.0 : 0.0);
+        });
+
+        document.getElementById('surface-tension-toggle').addEventListener('change', function(e) {
+            gl.uniform1f(uniformLocations.surfaceTensionEnabled, e.target.checked ? 1.0 : 0.0);
+        });
+
         // Add repulsion controls
         document.getElementById('repulsion-toggle').addEventListener('change', function(e) {
             gl.uniform1f(uniformLocations.repulsionEnabled, e.target.checked ? 1.0 : 0.0);
@@ -569,11 +599,6 @@
             gl.uniform1f(uniformLocations.repulsionRadius, value);
             document.getElementById('repulsion-radius-value').textContent = value.toFixed(2);
         });
-
-        // Initialize repulsion uniforms
-        gl.uniform1f(uniformLocations.repulsionEnabled, 1.0);  // Start enabled
-        gl.uniform1f(uniformLocations.repulsionStrength, 0.005);  // Default strength
-        gl.uniform1f(uniformLocations.repulsionRadius, 0.2);  // Default radius
 
         // Add gravity controls
         document.getElementById('gravity-toggle').addEventListener('change', function(e) {
@@ -717,6 +742,63 @@
                 metaballState.lastPositions[idx] = x;
                 metaballState.lastPositions[idx + 1] = y;
 
+                // Apply viscous damping
+                if (document.getElementById('viscous-damping-toggle').checked) {
+                    const viscosity = parseFloat(document.getElementById('viscous-damping-slider').value);
+                    vx *= viscosity;
+                    vy *= viscosity;
+                }
+
+                // Apply vorticity
+                if (document.getElementById('vorticity-toggle').checked) {
+                    const vorticity = parseFloat(document.getElementById('vorticity-slider').value);
+                    const toCenter = [0.5 - x, 0.5 - y];
+                    const dist = Math.sqrt(toCenter[0] * toCenter[0] + toCenter[1] * toCenter[1]);
+                    if (dist > 0.001) {
+                        // Create perpendicular force for rotation
+                        const perpForce = [-toCenter[1], toCenter[0]];
+                        vx += (perpForce[0] / dist) * vorticity * deltaTime;
+                        vy += (perpForce[1] / dist) * vorticity * deltaTime;
+                    }
+                }
+
+                // Apply turbulence
+                if (document.getElementById('turbulence-toggle').checked) {
+                    const turbulence = parseFloat(document.getElementById('turbulence-slider').value);
+                    const time = Date.now() / 1000;
+                    vx += Math.sin(time * 5 + y * 10) * turbulence * deltaTime;
+                    vy += Math.cos(time * 5 + x * 10) * turbulence * deltaTime;
+                }
+
+                // Apply angular momentum
+                if (document.getElementById('angular-momentum-toggle').checked) {
+                    const angularMomentum = parseFloat(document.getElementById('angular-momentum-slider').value);
+                    const toCenter = [0.5 - x, 0.5 - y];
+                    const dist = Math.sqrt(toCenter[0] * toCenter[0] + toCenter[1] * toCenter[1]);
+                    if (dist > 0.001) {
+                        // Calculate tangential velocity
+                        const speed = Math.sqrt(vx * vx + vy * vy);
+                        const perpForce = [-toCenter[1], toCenter[0]];
+                        vx += (perpForce[0] / dist) * angularMomentum * speed;
+                        vy += (perpForce[1] / dist) * angularMomentum * speed;
+                    }
+                }
+
+                // Apply surface tension
+                if (document.getElementById('surface-tension-toggle').checked) {
+                    const surfaceTension = parseFloat(document.getElementById('surface-tension-slider').value);
+                    for (let j = 0; j < maxMetaballs; j++) {
+                        if (i === j) continue;
+                        const dx = x - metaballState.positions[j * 2];
+                        const dy = y - metaballState.positions[j * 2 + 1];
+                        const dist = Math.sqrt(dx * dx + dy * dy);
+                        if (dist > 0.001 && dist < 0.2) {
+                            vx += (dx / dist) * surfaceTension * (0.2 - dist);
+                            vy += (dy / dist) * surfaceTension * (0.2 - dist);
+                        }
+                    }
+                }
+
                 // Apply gravity
                 if (document.getElementById('gravity-toggle').checked) {
                     const toCenter = [0.5 - x, 0.5 - y];
@@ -822,6 +904,46 @@
         const b = parseInt(hex.slice(5, 7), 16) / 255;
         return [r, g, b];
     }
+
+    // Initialize all uniform values and add event listeners
+    gl.uniform1f(uniformLocations.viscosityFactor, 0.9);
+    gl.uniform1f(uniformLocations.vorticityFactor, 0.9);
+    gl.uniform1f(uniformLocations.turbulenceFactor, 0.5);
+    gl.uniform1f(uniformLocations.angularMomentumFactor, 0.003);
+    gl.uniform1f(uniformLocations.surfaceTensionFactor, 0.03);
+
+    // Add all slider event listeners
+    document.getElementById('viscous-damping-slider').addEventListener('input', function(e) {
+        const value = parseFloat(e.target.value);
+        gl.uniform1f(uniformLocations.viscosityFactor, value);
+        document.getElementById('viscous-damping-value').textContent = value.toFixed(2);
+    });
+
+    document.getElementById('vorticity-slider').addEventListener('input', function(e) {
+        const value = parseFloat(e.target.value);
+        gl.uniform1f(uniformLocations.vorticityFactor, value);
+        document.getElementById('vorticity-value').textContent = value.toFixed(1);
+    });
+
+    document.getElementById('turbulence-slider').addEventListener('input', function(e) {
+        const value = parseFloat(e.target.value);
+        gl.uniform1f(uniformLocations.turbulenceFactor, value);
+        document.getElementById('turbulence-value').textContent = value.toFixed(1);
+    });
+
+    document.getElementById('angular-momentum-slider').addEventListener('input', function(e) {
+        const value = parseFloat(e.target.value);
+        gl.uniform1f(uniformLocations.angularMomentumFactor, value);
+        document.getElementById('angular-momentum-value').textContent = value.toFixed(3);
+    });
+
+    document.getElementById('surface-tension-slider').addEventListener('input', function(e) {
+        const value = parseFloat(e.target.value);
+        gl.uniform1f(uniformLocations.surfaceTensionFactor, value);
+        document.getElementById('surface-tension-value').textContent = value.toFixed(2);
+    });
+
+    // Remove the event listeners from the bottom of the file
 </script>
     
 </body>
