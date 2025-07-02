@@ -351,8 +351,8 @@
             </div>
             <div class="slider-container">
                 <input type="range" id="gravity-slider" class="range-slider" 
-                       min="0.0" max="0.01" step="0.0005" value="0.002">
-                <span class="slider-value">Strength: <span id="gravity-value">0.002</span></span>
+                       min="0.0001" max="0.002" step="0.0001" value="0.0005">
+                <span class="slider-value">Strength: <span id="gravity-value">0.0005</span></span>
             </div>
         </div>
 
@@ -367,8 +367,8 @@
             </div>
             <div class="slider-container">
                 <input type="range" id="repulsion-slider" class="range-slider" 
-                       min="0.0" max="0.01" step="0.001" value="0.005">
-                <span class="slider-value">Strength: <span id="repulsion-value">0.005</span></span>
+                       min="0.0" max="0.05" step="0.005" value="0.02">
+                <span class="slider-value">Strength: <span id="repulsion-value">0.02</span></span>
             </div>
             <div class="slider-container">
                 <input type="range" id="repulsion-radius-slider" class="range-slider" 
@@ -553,6 +553,28 @@
         gl.uniform1f(colorUniforms.distanceColorEnabled, 0.0);
         gl.uniform1f(colorUniforms.distanceColorIntensity, 1.0);
 
+        // Add repulsion controls
+        document.getElementById('repulsion-toggle').addEventListener('change', function(e) {
+            gl.uniform1f(uniformLocations.repulsionEnabled, e.target.checked ? 1.0 : 0.0);
+        });
+
+        document.getElementById('repulsion-slider').addEventListener('input', function(e) {
+            const value = parseFloat(e.target.value);
+            gl.uniform1f(uniformLocations.repulsionStrength, value);
+            document.getElementById('repulsion-value').textContent = value.toFixed(3);
+        });
+
+        document.getElementById('repulsion-radius-slider').addEventListener('input', function(e) {
+            const value = parseFloat(e.target.value);
+            gl.uniform1f(uniformLocations.repulsionRadius, value);
+            document.getElementById('repulsion-radius-value').textContent = value.toFixed(2);
+        });
+
+        // Initialize repulsion uniforms
+        gl.uniform1f(uniformLocations.repulsionEnabled, 1.0);  // Start enabled
+        gl.uniform1f(uniformLocations.repulsionStrength, 0.005);  // Default strength
+        gl.uniform1f(uniformLocations.repulsionRadius, 0.2);  // Default radius
+
         // Add gravity controls
         document.getElementById('gravity-toggle').addEventListener('change', function(e) {
             gl.uniform1f(uniformLocations.gravityEnabled, e.target.checked ? 1.0 : 0.0);
@@ -561,7 +583,7 @@
         document.getElementById('gravity-slider').addEventListener('input', function(e) {
             const value = parseFloat(e.target.value);
             gl.uniform1f(uniformLocations.gravityStrength, value);
-            document.getElementById('gravity-value').textContent = value.toFixed(3);
+            document.getElementById('gravity-value').textContent = value.toFixed(4);
         });
 
         // Initialize gravity uniform
@@ -800,29 +822,7 @@
         const b = parseInt(hex.slice(5, 7), 16) / 255;
         return [r, g, b];
     }
-
-    // Add repulsion controls
-    document.getElementById('repulsion-toggle').addEventListener('change', function(e) {
-        gl.uniform1f(uniformLocations.repulsionEnabled, e.target.checked ? 1.0 : 0.0);
-    });
-
-    document.getElementById('repulsion-slider').addEventListener('input', function(e) {
-        const value = parseFloat(e.target.value);
-        gl.uniform1f(uniformLocations.repulsionStrength, value);
-        document.getElementById('repulsion-value').textContent = value.toFixed(3);
-    });
-
-    document.getElementById('repulsion-radius-slider').addEventListener('input', function(e) {
-        const value = parseFloat(e.target.value);
-        gl.uniform1f(uniformLocations.repulsionRadius, value);
-        document.getElementById('repulsion-radius-value').textContent = value.toFixed(2);
-    });
-
-    // Initialize repulsion uniforms
-    gl.uniform1f(uniformLocations.repulsionEnabled, 0.0);  // Start disabled
-    gl.uniform1f(uniformLocations.repulsionStrength, 0.005);  // Default strength
-    gl.uniform1f(uniformLocations.repulsionRadius, 0.2);  // Default radius
-    </script>
+</script>
     
 </body>
 </html>
