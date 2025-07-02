@@ -28,35 +28,6 @@
             background-color:#207DCA;
         }
 
-        #crosshair {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            pointer-events: none;
-            z-index: 1000;
-            width: 20px;
-            height: 20px;
-        }
-
-        .crosshair-vertical {
-            position: absolute;
-            width: 2px;
-            height: 20px;
-            background: black;
-            left: 50%;
-            transform: translateX(-50%);
-        }
-
-        .crosshair-horizontal {
-            position: absolute;
-            width: 20px;
-            height: 2px;
-            background: black;
-            top: 50%;
-            transform: translateY(-50%);
-        }
-
         #controls-panel {
             position: fixed;
             top: 20px;
@@ -195,15 +166,78 @@
             background: #2196F3;
             border-color: #2196F3;
         }
+
+        .control-button {
+            width: 100%;
+            padding: 8px;
+            margin: 10px 0;
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: white;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .control-button:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        .well-indicator {
+            position: absolute;
+            pointer-events: none;
+            z-index: 900;
+            transform: translate(-50%, -50%);
+        }
+
+        .well-crosshair {
+            position: absolute;
+            width: 20px;
+            height: 20px;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%);
+        }
+
+        .well-crosshair::before,
+        .well-crosshair::after {
+            content: '';
+            position: absolute;
+            background: black;
+        }
+
+        .well-crosshair::before {
+            left: 50%;
+            height: 20px;
+            width: 2px;
+            transform: translateX(-50%);
+        }
+
+        .well-crosshair::after {
+            top: 50%;
+            width: 20px;
+            height: 2px;
+            transform: translateY(-50%);
+        }
+
+        .well-radius {
+            position: absolute;
+            border: 2px solid rgba(0, 0, 0, 0.3);
+            border-radius: 50%;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%);
+        }
+
+        /* Add hover effect for the canvas in placement mode */
+        canvas.placement-mode {
+            cursor: crosshair;
+        }
     </style>
 </head>
 <body>
     <div id="canvas-container">
         <canvas id="glcanvas" width="500" height="500"></canvas>
-        <div id="crosshair">
-            <div class="crosshair-vertical"></div>
-            <div class="crosshair-horizontal"></div>
-        </div>
     </div>
     
     <div id="controls-panel">
@@ -382,29 +416,36 @@
 
         <!-- Gravity Well -->
         <div class="control-group">
-            <h4 style="margin-top: 0;">Gravity Well</h4>
+            <h4 style="margin-top: 0;">Gravity Wells</h4>
             
-            <!-- Gravity Well Toggle -->
+            <!-- Well Placement Mode -->
             <div class="control-header">
-                <span>Enable Gravity Well</span>
+                <span>Well Placement Mode</span>
                 <label class="toggle-switch">
-                    <input type="checkbox" id="gravity-well-toggle" checked>
+                    <input type="checkbox" id="well-placement-toggle">
                     <span class="toggle-slider"></span>
                 </label>
             </div>
 
-            <!-- Force Strength -->
-            <div class="slider-container">
-                <input type="range" id="gravity-well-strength-slider" class="range-slider" 
-                       min="0.1" max="2.0" step="0.1" value="1.0">
-                <span class="slider-value">Force: <span id="gravity-well-strength-value">1.0</span></span>
-            </div>
+            <!-- Clear Wells Button -->
+            <button id="clear-wells-button" class="control-button">Clear All Wells</button>
 
-            <!-- Effect Radius -->
-            <div class="slider-container">
-                <input type="range" id="gravity-well-radius-slider" class="range-slider" 
-                       min="50" max="300" step="10" value="150">
-                <span class="slider-value">Radius: <span id="gravity-well-radius-value">150</span>px</span>
+            <!-- Well Settings -->
+            <div class="well-settings">
+                <h5>New Well Settings</h5>
+                <!-- Force Strength -->
+                <div class="slider-container">
+                    <input type="range" id="gravity-well-strength-slider" class="range-slider" 
+                           min="0.1" max="2.0" step="0.1" value="1.0">
+                    <span class="slider-value">Force: <span id="gravity-well-strength-value">1.0</span></span>
+                </div>
+
+                <!-- Effect Radius -->
+                <div class="slider-container">
+                    <input type="range" id="gravity-well-radius-slider" class="range-slider" 
+                           min="50" max="300" step="10" value="150">
+                    <span class="slider-value">Radius: <span id="gravity-well-radius-value">150</span>px</span>
+                </div>
             </div>
         </div>
     </div>
@@ -467,10 +508,11 @@
         uniform float distanceColorIntensity;
 
         // Gravity Well uniforms
-        uniform vec2 gravityWellPos;
-        uniform float gravityWellEnabled;
-        uniform float gravityWellStrength;
-        uniform float gravityWellRadius;
+        const int MAX_GRAVITY_WELLS = 10;  // Maximum number of wells
+        uniform vec2 gravityWellPositions[MAX_GRAVITY_WELLS];
+        uniform float gravityWellStrengths[MAX_GRAVITY_WELLS];
+        uniform float gravityWellRadii[MAX_GRAVITY_WELLS];
+        uniform int activeWellCount;
 
         // EFFECT CONTROLS
         // ----------------------------
@@ -682,24 +724,30 @@
             return position + normalize(toMouse) * forceMagnitude * mouseForceType;
         }
 
-        vec2 applyGravityWell(vec2 position) {
-            if (gravityWellEnabled <= 0.0) return position;
-
-            vec2 toWell = gravityWellPos - position;
-            float dist = length(toWell);
+        vec2 applyGravityWells(vec2 position) {
+            vec2 totalForce = vec2(0.0);
             
-            // Convert pixel radius to normalized space
-            float maxRadius = gravityWellRadius / 500.0;
+            for(int i = 0; i < MAX_GRAVITY_WELLS; i++) {
+                if(i >= activeWellCount) break;
+                
+                vec2 toWell = gravityWellPositions[i] - position;
+                float dist = length(toWell);
+                
+                // Convert pixel radius to normalized space
+                float maxRadius = gravityWellRadii[i] / 500.0;
+                
+                if (dist < 0.001) continue; // Prevent division by zero
+                if (dist > maxRadius) continue;
+                
+                // Calculate gravitational force
+                float normalizedDist = dist / maxRadius;
+                float forceMagnitude = (1.0 - normalizedDist * normalizedDist) * gravityWellStrengths[i] * 0.2;
+                
+                // Accumulate force
+                totalForce += normalize(toWell) * forceMagnitude;
+            }
             
-            if (dist < 0.001) return position; // Prevent division by zero
-            if (dist > maxRadius) return position;
-            
-            // Calculate gravitational force
-            float normalizedDist = dist / maxRadius;
-            float forceMagnitude = (1.0 - normalizedDist * normalizedDist) * gravityWellStrength * 0.2;
-            
-            // Apply gravitational force (always attracts)
-            return position + normalize(toWell) * forceMagnitude;
+            return position + totalForce;
         }
 
         void main() {
@@ -723,8 +771,8 @@
                 // Apply mouse force
                 position = applyMouseForce(position);
                 
-                // Apply gravity well
-                position = applyGravityWell(position);
+                // Apply gravity wells
+                position = applyGravityWells(position);
                 
                 // Apply other effects
                 position = turbulence(position, time);
@@ -1002,33 +1050,90 @@
 
         // Add gravity well uniform locations
         const gravityWellUniforms = {
-            gravityWellPos: gl.getUniformLocation(shaderProgram, 'gravityWellPos'),
-            gravityWellEnabled: gl.getUniformLocation(shaderProgram, 'gravityWellEnabled'),
-            gravityWellStrength: gl.getUniformLocation(shaderProgram, 'gravityWellStrength'),
-            gravityWellRadius: gl.getUniformLocation(shaderProgram, 'gravityWellRadius')
+            gravityWellPositions: gl.getUniformLocation(shaderProgram, 'gravityWellPositions'),
+            gravityWellStrengths: gl.getUniformLocation(shaderProgram, 'gravityWellStrengths'),
+            gravityWellRadii: gl.getUniformLocation(shaderProgram, 'gravityWellRadii'),
+            activeWellCount: gl.getUniformLocation(shaderProgram, 'activeWellCount')
         };
 
-        // Initialize gravity well controls
+        // Gravity well management
+        const wells = [];
+        let isPlacementMode = false;
+        let nextWellId = 0;
+
+        function createWell(x, y, strength, radius) {
+            const well = {
+                id: nextWellId++,
+                x: x,
+                y: y,
+                strength: strength,
+                radius: radius
+            };
+
+            // Create visual indicators
+            const container = document.createElement('div');
+            container.className = 'well-indicator';
+            container.style.left = (x * 100) + '%';
+            container.style.top = (y * 100) + '%';
+
+            const crosshair = document.createElement('div');
+            crosshair.className = 'well-crosshair';
+
+            const radiusCircle = document.createElement('div');
+            radiusCircle.className = 'well-radius';
+            radiusCircle.style.width = (radius * 2) + 'px';
+            radiusCircle.style.height = (radius * 2) + 'px';
+
+            container.appendChild(crosshair);
+            container.appendChild(radiusCircle);
+            document.getElementById('canvas-container').appendChild(container);
+
+            well.element = container;
+            wells.push(well);
+            updateWellUniforms();
+        }
+
+        function clearWells() {
+            wells.forEach(well => well.element.remove());
+            wells.length = 0;
+            updateWellUniforms();
+        }
+
+        function updateWellUniforms() {
+            const positions = new Float32Array(MAX_GRAVITY_WELLS * 2);
+            const strengths = new Float32Array(MAX_GRAVITY_WELLS);
+            const radii = new Float32Array(MAX_GRAVITY_WELLS);
+
+            wells.forEach((well, i) => {
+                if (i >= MAX_GRAVITY_WELLS) return;
+                positions[i * 2] = well.x;
+                positions[i * 2 + 1] = well.y;
+                strengths[i] = well.strength;
+                radii[i] = well.radius;
+            });
+
+            gl.uniform2fv(gravityWellUniforms.gravityWellPositions, positions);
+            gl.uniform1fv(gravityWellUniforms.gravityWellStrengths, strengths);
+            gl.uniform1fv(gravityWellUniforms.gravityWellRadii, radii);
+            gl.uniform1i(gravityWellUniforms.activeWellCount, wells.length);
+        }
+
+        // Update gravity well controls setup
         function setupGravityWellControls() {
-            document.getElementById('gravity-well-toggle').addEventListener('change', function(e) {
-                gl.uniform1f(gravityWellUniforms.gravityWellEnabled, e.target.checked ? 1.0 : 0.0);
+            const placementToggle = document.getElementById('well-placement-toggle');
+            const clearButton = document.getElementById('clear-wells-button');
+            const canvas = document.getElementById('glcanvas');
+
+            placementToggle.addEventListener('change', function(e) {
+                isPlacementMode = e.target.checked;
+                canvas.classList.toggle('placement-mode', isPlacementMode);
             });
 
-            document.getElementById('gravity-well-strength-slider').addEventListener('input', function(e) {
-                const value = parseFloat(e.target.value);
-                gl.uniform1f(gravityWellUniforms.gravityWellStrength, value);
-                document.getElementById('gravity-well-strength-value').textContent = value.toFixed(1);
-            });
+            clearButton.addEventListener('click', clearWells);
 
-            document.getElementById('gravity-well-radius-slider').addEventListener('input', function(e) {
-                const value = parseFloat(e.target.value);
-                gl.uniform1f(gravityWellUniforms.gravityWellRadius, value);
-                document.getElementById('gravity-well-radius-value').textContent = value;
-            });
+            canvas.addEventListener('click', function(e) {
+                if (!isPlacementMode) return;
 
-            // Update gravity well position on right-click
-            canvas.addEventListener('contextmenu', function(e) {
-                e.preventDefault();
                 const rect = canvas.getBoundingClientRect();
                 const scaleX = canvas.width / rect.width;
                 const scaleY = canvas.height / rect.height;
@@ -1036,15 +1141,14 @@
                 const x = ((e.clientX - rect.left) * scaleX) / canvas.width;
                 const y = 1.0 - ((e.clientY - rect.top) * scaleY) / canvas.height;
                 
-                gl.uniform2f(gravityWellUniforms.gravityWellPos, x, y);
+                const strength = parseFloat(document.getElementById('gravity-well-strength-slider').value);
+                const radius = parseFloat(document.getElementById('gravity-well-radius-slider').value);
+                
+                if (wells.length < MAX_GRAVITY_WELLS) {
+                    createWell(x, y, strength, radius);
+                }
             });
         }
-
-        // Set initial gravity well uniform values
-        gl.uniform2f(gravityWellUniforms.gravityWellPos, 0.5, 0.5);
-        gl.uniform1f(gravityWellUniforms.gravityWellEnabled, document.getElementById('gravity-well-toggle').checked ? 1.0 : 0.0);
-        gl.uniform1f(gravityWellUniforms.gravityWellStrength, parseFloat(document.getElementById('gravity-well-strength-slider').value));
-        gl.uniform1f(gravityWellUniforms.gravityWellRadius, parseFloat(document.getElementById('gravity-well-radius-slider').value));
 
         // Initialize all controls
         setupControlListeners();
