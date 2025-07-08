@@ -1,9 +1,11 @@
-import { initWebGL, setupBuffersAndDraw } from './webgl-setup.js';
+import { initWebGL, setupBuffers } from './webgl-setup.js';
+import { startAnimation } from './animation.js';
 
 window.onload = () => {
     const canvas = document.getElementById('glcanvas');
     const { gl, shaderProgram } = initWebGL(canvas);
     if (gl) {
-        setupBuffersAndDraw(gl, shaderProgram);
+        setupBuffers(gl, shaderProgram);
+        startAnimation(gl, shaderProgram);
     }
 };
