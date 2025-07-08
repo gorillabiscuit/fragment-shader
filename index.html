@@ -270,8 +270,8 @@
             </div>
             <div class="slider-container">
                 <input type="range" id="viscous-damping-slider" class="range-slider" 
-                       min="0.8" max="0.99" step="0.01" value="0.9">
-                <span class="slider-value">Strength: <span id="viscous-damping-value">0.90</span></span>
+                       min="0.8" max="0.99" step="0.01" value="0.90">
+                <span class="slider-value">Strength: <span id="viscous-damping-value">0.90000</span></span>
             </div>
         </div>
 
@@ -318,8 +318,8 @@
             </div>
             <div class="slider-container">
                 <input type="range" id="angular-momentum-slider" class="range-slider" 
-                       min="0.001" max="0.01" step="0.001" value="0.003">
-                <span class="slider-value">Strength: <span id="angular-momentum-value">0.003</span></span>
+                       min="0.00001" max="0.0001" step="0.00001" value="0.00002">
+                <span class="slider-value">Strength: <span id="angular-momentum-value">0.0000</span></span>
             </div>
         </div>
 
@@ -562,11 +562,41 @@
         gl.uniform1f(uniformLocations.gravityEnabled, 1.0);  // Start enabled
         gl.uniform1f(uniformLocations.repulsionEnabled, 1.0);  // Start enabled
 
-        // Add toggle event listeners
-        document.getElementById('viscous-damping-toggle').addEventListener('change', function(e) {
-            gl.uniform1f(uniformLocations.viscousDampingEnabled, e.target.checked ? 1.0 : 0.0);
+        // Initialize surface tension controls
+        gl.uniform1f(uniformLocations.surfaceTensionEnabled, 0.0);
+        gl.uniform1f(uniformLocations.surfaceTensionFactor, 0.03);
+
+        document.getElementById('surface-tension-toggle').addEventListener('change', function(e) {
+            gl.uniform1f(uniformLocations.surfaceTensionEnabled, e.target.checked ? 1.0 : 0.0);
         });
 
+        document.getElementById('surface-tension-slider').addEventListener('input', function(e) {
+            const value = parseFloat(e.target.value);
+            gl.uniform1f(uniformLocations.surfaceTensionFactor, value);
+            document.getElementById('surface-tension-value').textContent = value.toFixed(5);
+        });
+
+        // Initialize surface tension value display
+        document.getElementById('surface-tension-value').textContent = 
+            parseFloat(document.getElementById('surface-tension-slider').value).toFixed(5);
+
+        // Initialize viscous damping controls
+        document.getElementById('viscous-damping-toggle').addEventListener('change', function(e) {
+            const isEnabled = e.target.checked;
+            gl.uniform1f(uniformLocations.viscousDampingEnabled, isEnabled ? 1.0 : 0.0);
+        });
+
+        document.getElementById('viscous-damping-slider').addEventListener('input', function(e) {
+            const value = parseFloat(e.target.value);
+            gl.uniform1f(uniformLocations.viscosityFactor, value);
+            document.getElementById('viscous-damping-value').textContent = value.toFixed(5);
+        });
+
+        // Initialize viscous damping value display
+        document.getElementById('viscous-damping-value').textContent = 
+            parseFloat(document.getElementById('viscous-damping-slider').value).toFixed(5);
+
+        // Add toggle event listeners
         document.getElementById('vorticity-toggle').addEventListener('change', function(e) {
             gl.uniform1f(uniformLocations.vorticityEnabled, e.target.checked ? 1.0 : 0.0);
         });
@@ -579,10 +609,6 @@
             gl.uniform1f(uniformLocations.angularMomentumEnabled, e.target.checked ? 1.0 : 0.0);
         });
 
-        document.getElementById('surface-tension-toggle').addEventListener('change', function(e) {
-            gl.uniform1f(uniformLocations.surfaceTensionEnabled, e.target.checked ? 1.0 : 0.0);
-        });
-
         // Add repulsion controls
         document.getElementById('repulsion-toggle').addEventListener('change', function(e) {
             gl.uniform1f(uniformLocations.repulsionEnabled, e.target.checked ? 1.0 : 0.0);
@@ -591,13 +617,13 @@
         document.getElementById('repulsion-slider').addEventListener('input', function(e) {
             const value = parseFloat(e.target.value);
             gl.uniform1f(uniformLocations.repulsionStrength, value);
-            document.getElementById('repulsion-value').textContent = value.toFixed(3);
+            document.getElementById('repulsion-value').textContent = value.toFixed(5);
         });
 
         document.getElementById('repulsion-radius-slider').addEventListener('input', function(e) {
             const value = parseFloat(e.target.value);
             gl.uniform1f(uniformLocations.repulsionRadius, value);
-            document.getElementById('repulsion-radius-value').textContent = value.toFixed(2);
+            document.getElementById('repulsion-radius-value').textContent = value.toFixed(5);
         });
 
         // Add gravity controls
@@ -608,7 +634,7 @@
         document.getElementById('gravity-slider').addEventListener('input', function(e) {
             const value = parseFloat(e.target.value);
             gl.uniform1f(uniformLocations.gravityStrength, value);
-            document.getElementById('gravity-value').textContent = value.toFixed(4);
+            document.getElementById('gravity-value').textContent = value.toFixed(5);
         });
 
         // Initialize gravity uniform
@@ -635,7 +661,7 @@
         document.getElementById('velocity-color-slider').addEventListener('input', function(e) {
             const value = parseFloat(e.target.value);
             gl.uniform1f(colorUniforms.velocityColorIntensity, value);
-            document.getElementById('velocity-color-value').textContent = value.toFixed(1);
+            document.getElementById('velocity-color-value').textContent = value.toFixed(5);
         });
 
         document.getElementById('distance-color-toggle').addEventListener('change', function(e) {
@@ -645,7 +671,7 @@
         document.getElementById('distance-color-slider').addEventListener('input', function(e) {
             const value = parseFloat(e.target.value);
             gl.uniform1f(colorUniforms.distanceColorIntensity, value);
-            document.getElementById('distance-color-value').textContent = value.toFixed(1);
+            document.getElementById('distance-color-value').textContent = value.toFixed(5);
         });
 
         // Add mouse tracking
@@ -680,7 +706,7 @@
             document.getElementById('mouse-force-slider').addEventListener('input', function(e) {
                 const value = parseFloat(e.target.value);
                 gl.uniform1f(gl.getUniformLocation(shaderProgram, 'mouseForceStrength'), value);
-                document.getElementById('mouse-force-value').textContent = value.toFixed(1);
+                document.getElementById('mouse-force-value').textContent = value.toFixed(5);
             });
 
             document.getElementById('mouse-radius-slider').addEventListener('input', function(e) {
@@ -775,12 +801,16 @@
                     const angularMomentum = parseFloat(document.getElementById('angular-momentum-slider').value);
                     const toCenter = [0.5 - x, 0.5 - y];
                     const dist = Math.sqrt(toCenter[0] * toCenter[0] + toCenter[1] * toCenter[1]);
+                    
                     if (dist > 0.001) {
-                        // Calculate tangential velocity
-                        const speed = Math.sqrt(vx * vx + vy * vy);
-                        const perpForce = [-toCenter[1], toCenter[0]];
-                        vx += (perpForce[0] / dist) * angularMomentum * speed;
-                        vy += (perpForce[1] / dist) * angularMomentum * speed;
+                        // Calculate perpendicular direction for orbital motion
+                        const perpForce = [-toCenter[1] / dist, toCenter[0] / dist];
+                        
+                        // Apply force perpendicular to radius, scaled by distance
+                        // This creates proper orbital motion with distance-dependent strength
+                        const forceMagnitude = angularMomentum / Math.sqrt(dist);
+                        vx += perpForce[0] * forceMagnitude;
+                        vy += perpForce[1] * forceMagnitude;
                     }
                 }
 
@@ -792,9 +822,16 @@
                         const dx = x - metaballState.positions[j * 2];
                         const dy = y - metaballState.positions[j * 2 + 1];
                         const dist = Math.sqrt(dx * dx + dy * dy);
-                        if (dist > 0.001 && dist < 0.2) {
-                            vx += (dx / dist) * surfaceTension * (0.2 - dist);
-                            vy += (dy / dist) * surfaceTension * (0.2 - dist);
+                        
+                        // Optimal distance for metaballs
+                        const optimalDist = 0.3;
+                        
+                        if (dist > 0.001) {  // Avoid division by zero
+                            // Create attractive force when metaballs are too far apart
+                            // and repulsive force when they're too close
+                            const force = surfaceTension * (dist - optimalDist);
+                            vx -= (dx / dist) * force;
+                            vy -= (dy / dist) * force;
                         }
                     }
                 }
@@ -832,9 +869,10 @@
                     }
                 }
 
-                // Apply damping
-                vx *= 0.99;
-                vy *= 0.99;
+                // Apply damping (base damping always active)
+                const baseDamping = document.getElementById('viscous-damping-toggle').checked ? 1.0 : 0.99;
+                vx *= baseDamping;
+                vy *= baseDamping;
 
                 // Update position
                 x += vx;
@@ -916,35 +954,71 @@
     document.getElementById('viscous-damping-slider').addEventListener('input', function(e) {
         const value = parseFloat(e.target.value);
         gl.uniform1f(uniformLocations.viscosityFactor, value);
-        document.getElementById('viscous-damping-value').textContent = value.toFixed(2);
+        document.getElementById('viscous-damping-value').textContent = value.toFixed(5);
     });
 
     // Initialize viscous damping value display
     document.getElementById('viscous-damping-value').textContent = 
-        document.getElementById('viscous-damping-slider').value;
+        parseFloat(document.getElementById('viscous-damping-slider').value).toFixed(5);
 
     document.getElementById('vorticity-slider').addEventListener('input', function(e) {
         const value = parseFloat(e.target.value);
         gl.uniform1f(uniformLocations.vorticityFactor, value);
-        document.getElementById('vorticity-value').textContent = value.toFixed(1);
+        document.getElementById('vorticity-value').textContent = value.toFixed(5);
     });
 
     document.getElementById('turbulence-slider').addEventListener('input', function(e) {
         const value = parseFloat(e.target.value);
         gl.uniform1f(uniformLocations.turbulenceFactor, value);
-        document.getElementById('turbulence-value').textContent = value.toFixed(1);
+        document.getElementById('turbulence-value').textContent = value.toFixed(5);
     });
 
     document.getElementById('angular-momentum-slider').addEventListener('input', function(e) {
         const value = parseFloat(e.target.value);
         gl.uniform1f(uniformLocations.angularMomentumFactor, value);
-        document.getElementById('angular-momentum-value').textContent = value.toFixed(3);
+        document.getElementById('angular-momentum-value').textContent = value.toFixed(5);
     });
 
     document.getElementById('surface-tension-slider').addEventListener('input', function(e) {
         const value = parseFloat(e.target.value);
         gl.uniform1f(uniformLocations.surfaceTensionFactor, value);
-        document.getElementById('surface-tension-value').textContent = value.toFixed(2);
+        document.getElementById('surface-tension-value').textContent = value.toFixed(5);
+    });
+
+    document.getElementById('gravity-slider').addEventListener('input', function(e) {
+        const value = parseFloat(e.target.value);
+        gl.uniform1f(uniformLocations.gravityStrength, value);
+        document.getElementById('gravity-value').textContent = value.toFixed(5);
+    });
+
+    document.getElementById('repulsion-slider').addEventListener('input', function(e) {
+        const value = parseFloat(e.target.value);
+        gl.uniform1f(uniformLocations.repulsionStrength, value);
+        document.getElementById('repulsion-value').textContent = value.toFixed(5);
+    });
+
+    document.getElementById('repulsion-radius-slider').addEventListener('input', function(e) {
+        const value = parseFloat(e.target.value);
+        gl.uniform1f(uniformLocations.repulsionRadius, value);
+        document.getElementById('repulsion-radius-value').textContent = value.toFixed(5);
+    });
+
+    document.getElementById('mouse-force-slider').addEventListener('input', function(e) {
+        const value = parseFloat(e.target.value);
+        gl.uniform1f(gl.getUniformLocation(shaderProgram, 'mouseForceStrength'), value);
+        document.getElementById('mouse-force-value').textContent = value.toFixed(5);
+    });
+
+    document.getElementById('velocity-color-slider').addEventListener('input', function(e) {
+        const value = parseFloat(e.target.value);
+        gl.uniform1f(colorUniforms.velocityColorIntensity, value);
+        document.getElementById('velocity-color-value').textContent = value.toFixed(5);
+    });
+
+    document.getElementById('distance-color-slider').addEventListener('input', function(e) {
+        const value = parseFloat(e.target.value);
+        gl.uniform1f(colorUniforms.distanceColorIntensity, value);
+        document.getElementById('distance-color-value').textContent = value.toFixed(5);
     });
 </script>
     
