@@ -5,6 +5,26 @@ let metaballState = {
     velocities: [],
 };
 
+let turbulence = 0.001; // Default, matches new slider
+let viscousDampingEnabled = false;
+let viscousDampingValue = 0.99;
+let vorticityEnabled = false;
+let vorticityValue = 0.0;
+
+export function setTurbulence(value) {
+    turbulence = value;
+}
+
+export function setViscousDamping(enabled, value) {
+    viscousDampingEnabled = enabled;
+    viscousDampingValue = value;
+}
+
+export function setVorticity(enabled, value) {
+    vorticityEnabled = enabled;
+    vorticityValue = value;
+}
+
 export function initializeMetaballs() {
     metaballState.positions = [];
     metaballState.velocities = [];
@@ -27,6 +47,24 @@ export function updatePhysics() {
         let y = metaballState.positions[idx + 1];
         let vx = metaballState.velocities[idx];
         let vy = metaballState.velocities[idx + 1];
+        // Add turbulence
+        vx += (Math.random() - 0.5) * turbulence;
+        vy += (Math.random() - 0.5) * turbulence;
+        // Vorticity
+        if (vorticityEnabled && vorticityValue > 0) {
+            const toCenter = [0.5 - x, 0.5 - y];
+            const dist = Math.sqrt(toCenter[0] * toCenter[0] + toCenter[1] * toCenter[1]);
+            if (dist > 0.001) {
+                // Perpendicular force for rotation
+                const perpForce = [-toCenter[1], toCenter[0]];
+                vx += (perpForce[0] / dist) * vorticityValue;
+                vy += (perpForce[1] / dist) * vorticityValue;
+            }
+        }
+        // Apply viscous damping
+        const damping = viscousDampingEnabled ? viscousDampingValue : 1.0;
+        vx *= damping;
+        vy *= damping;
         // Move
         x += vx;
         y += vy;
@@ -44,4 +82,8 @@ export function updatePhysics() {
 
 export function getMetaballPositions() {
     return metaballState.positions;
+}
+
+export function getMetaballVelocities() {
+    return metaballState.velocities;
 }
