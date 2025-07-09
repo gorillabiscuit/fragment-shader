@@ -334,8 +334,8 @@
             </div>
             <div class="slider-container">
                 <input type="range" id="surface-tension-slider" class="range-slider" 
-                       min="0.01" max="0.1" step="0.01" value="0.03">
-                <span class="slider-value">Strength: <span id="surface-tension-value">0.03</span></span>
+                       min="0.0" max="0.005" step="0.0001" value="0.0">
+                <span class="slider-value">Strength: <span id="surface-tension-value">0.000000000000</span></span>
             </div>
         </div>
 
@@ -359,21 +359,41 @@
         <!-- Repulsion Controls -->
         <div class="control-group">
             <div class="control-header">
-                <span>Ball Repulsion</span>
+                <span>Ball 1 Repulsion</span>
                 <label class="toggle-switch">
-                    <input type="checkbox" id="repulsion-toggle" checked>
+                    <input type="checkbox" id="repulsion1-toggle">
                     <span class="toggle-slider"></span>
                 </label>
             </div>
             <div class="slider-container">
-                <input type="range" id="repulsion-slider" class="range-slider" 
-                       min="0.0" max="0.05" step="0.005" value="0.02">
-                <span class="slider-value">Strength: <span id="repulsion-value">0.02</span></span>
+                <input type="range" id="repulsion1-slider" class="range-slider" min="0.0" max="0.01" step="0.0001" value="0.002">
+                <span class="slider-value">Strength: <span id="repulsion1-value">0.002000000000</span></span>
+            </div>
+        </div>
+        <div class="control-group">
+            <div class="control-header">
+                <span>Ball 2 Repulsion</span>
+                <label class="toggle-switch">
+                    <input type="checkbox" id="repulsion2-toggle">
+                    <span class="toggle-slider"></span>
+                </label>
             </div>
             <div class="slider-container">
-                <input type="range" id="repulsion-radius-slider" class="range-slider" 
-                       min="0.1" max="0.5" step="0.05" value="0.2">
-                <span class="slider-value">Radius: <span id="repulsion-radius-value">0.2</span></span>
+                <input type="range" id="repulsion2-slider" class="range-slider" min="0.0" max="0.01" step="0.0001" value="0.002">
+                <span class="slider-value">Strength: <span id="repulsion2-value">0.002000000000</span></span>
+            </div>
+        </div>
+        <div class="control-group">
+            <div class="control-header">
+                <span>Ball 3 Repulsion</span>
+                <label class="toggle-switch">
+                    <input type="checkbox" id="repulsion3-toggle">
+                    <span class="toggle-slider"></span>
+                </label>
+            </div>
+            <div class="slider-container">
+                <input type="range" id="repulsion3-slider" class="range-slider" min="0.0" max="0.01" step="0.0001" value="0.002">
+                <span class="slider-value">Strength: <span id="repulsion3-value">0.002000000000</span></span>
             </div>
         </div>
     </div>
