@@ -17,6 +17,7 @@ uniform float velocityColorEnabled;
 uniform float velocityColorIntensity;
 uniform float distanceColorEnabled;
 uniform float distanceColorIntensity;
+uniform float metaballRadii[3];
 
 float metaball(vec2 point, vec2 center, float radius) {
     vec2 aspectRatio = vec2(canvasWidth / canvasHeight, 1.0);
@@ -34,7 +35,7 @@ void main() {
     float maxSpeed = 0.03; // Tune as needed for effect
 
     for (int i = 0; i < 3; i++) {
-        float fieldStrength = metaball(point, metaballPositions[i], 0.003125);
+        float fieldStrength = metaball(point, metaballPositions[i], metaballRadii[i]);
         sum += fieldStrength;
 
         // Calculate velocity-based color

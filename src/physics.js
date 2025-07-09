@@ -10,6 +10,14 @@ let viscousDampingEnabled = false;
 let viscousDampingValue = 0.99;
 let vorticityEnabled = false;
 let vorticityValue = 0.0;
+let surfaceTensionEnabled = false;
+let surfaceTensionValue = 0.0;
+let gravityEnabled = false;
+let gravityValue = 0.0;
+let repulsionEnabled = true;
+let repulsionToggles = [false, false, false];
+let repulsionStrengths = [0.02, 0.02, 0.02];
+const repulsionRadius = 0.2;
 
 export function setTurbulence(value) {
     turbulence = value;
@@ -23,6 +31,21 @@ export function setViscousDamping(enabled, value) {
 export function setVorticity(enabled, value) {
     vorticityEnabled = enabled;
     vorticityValue = value;
+}
+
+export function setSurfaceTension(enabled, value) {
+    surfaceTensionEnabled = enabled;
+    surfaceTensionValue = value;
+}
+
+export function setGravity(enabled, value) {
+    gravityEnabled = enabled;
+    gravityValue = value;
+}
+
+export function setRepulsions(toggles, strengths) {
+    repulsionToggles = toggles;
+    repulsionStrengths = strengths;
 }
 
 export function initializeMetaballs() {
@@ -55,10 +78,48 @@ export function updatePhysics() {
             const toCenter = [0.5 - x, 0.5 - y];
             const dist = Math.sqrt(toCenter[0] * toCenter[0] + toCenter[1] * toCenter[1]);
             if (dist > 0.001) {
-                // Perpendicular force for rotation
                 const perpForce = [-toCenter[1], toCenter[0]];
                 vx += (perpForce[0] / dist) * vorticityValue;
                 vy += (perpForce[1] / dist) * vorticityValue;
+            }
+        }
+        // Surface tension
+        if (surfaceTensionEnabled && surfaceTensionValue > 0) {
+            for (let j = 0; j < maxMetaballs; j++) {
+                if (i === j) continue;
+                const dx = x - metaballState.positions[j * 2];
+                const dy = y - metaballState.positions[j * 2 + 1];
+                const dist = Math.sqrt(dx * dx + dy * dy);
+                const optimalDist = 0.3;
+                if (dist > 0.001) {
+                    // Attractive if too far, repulsive if too close
+                    const force = surfaceTensionValue * (dist - optimalDist);
+                    vx -= (dx / dist) * force;
+                    vy -= (dy / dist) * force;
+                }
+            }
+        }
+        // Gravity
+        if (gravityEnabled && gravityValue > 0) {
+            const toCenter = [0.5 - x, 0.5 - y];
+            const dist = Math.sqrt(toCenter[0] * toCenter[0] + toCenter[1] * toCenter[1]);
+            if (dist > 0.001) {
+                vx += (toCenter[0] / dist) * gravityValue;
+                vy += (toCenter[1] / dist) * gravityValue;
+            }
+        }
+        // Repulsion
+        if (repulsionToggles[i]) {
+            for (let j = 0; j < maxMetaballs; j++) {
+                if (i === j) continue;
+                const dx = x - metaballState.positions[j * 2];
+                const dy = y - metaballState.positions[j * 2 + 1];
+                const dist = Math.sqrt(dx * dx + dy * dy);
+                if (dist < repulsionRadius && dist > 0.001) {
+                    const force = repulsionStrengths[i] * (1.0 - dist / repulsionRadius);
+                    vx += (dx / dist) * force;
+                    vy += (dy / dist) * force;
+                }
             }
         }
         // Apply viscous damping
@@ -68,11 +129,22 @@ export function updatePhysics() {
         // Move
         x += vx;
         y += vy;
-        // Bounce off walls
-        if (x < 0) { x = 0; vx *= -1; }
-        if (x > 1) { x = 1; vx *= -1; }
-        if (y < 0) { y = 0; vy *= -1; }
-        if (y > 1) { y = 1; vy *= -1; }
+        // Circular boundary bounce
+        const dx = x - boundaryCenter[0];
+        const dy = y - boundaryCenter[1];
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        const effectiveBoundary = getBoundaryRadius() - METABALL_RADIUS;
+        if (dist > effectiveBoundary) {
+            // Clamp to circle
+            const nx = dx / dist;
+            const ny = dy / dist;
+            x = boundaryCenter[0] + nx * effectiveBoundary;
+            y = boundaryCenter[1] + ny * effectiveBoundary;
+            // Reflect velocity
+            const dot = vx * nx + vy * ny;
+            vx = vx - 2 * dot * nx;
+            vy = vy - 2 * dot * ny;
+        }
         metaballState.positions[idx] = x;
         metaballState.positions[idx + 1] = y;
         metaballState.velocities[idx] = vx;
@@ -87,3 +159,11 @@ export function getMetaballPositions() {
 export function getMetaballVelocities() {
     return metaballState.velocities;
 }
+
+// Circular boundary parameters
+export const boundaryCenter = [0.5, 0.5];
+let boundaryRadius = 0.45;
+export function getBoundaryRadius() { return boundaryRadius; }
+export function setBoundaryRadius(r) { boundaryRadius = r; }
+
+export const METABALL_RADIUS = 0.1;

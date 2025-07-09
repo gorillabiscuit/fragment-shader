@@ -10,7 +10,10 @@ const controlIds = [
     'angular-momentum-toggle', 'angular-momentum-slider',
     'surface-tension-toggle', 'surface-tension-slider',
     'gravity-toggle', 'gravity-slider',
-    'repulsion-toggle', 'repulsion-slider', 'repulsion-radius-slider'
+    'repulsion1-toggle', 'repulsion2-toggle', 'repulsion3-toggle',
+    'repulsion1-slider', 'repulsion2-slider', 'repulsion3-slider',
+    'circular-boundary-toggle',
+    'metaball-visual-size-slider'
 ];
 
 const listeners = [];
@@ -51,6 +54,10 @@ function updateSliderDisplays() {
         { slider: 'gravity-slider', value: 'gravity-value', digits: 12 },
         { slider: 'repulsion-slider', value: 'repulsion-value', digits: 12 },
         { slider: 'repulsion-radius-slider', value: 'repulsion-radius-value', digits: 12 },
+        { slider: 'repulsion1-slider', value: 'repulsion1-value', digits: 12 },
+        { slider: 'repulsion2-slider', value: 'repulsion2-value', digits: 12 },
+        { slider: 'repulsion3-slider', value: 'repulsion3-value', digits: 12 },
+        { slider: 'metaball-visual-size-slider', value: 'metaball-visual-size-value', digits: 6 },
     ];
     for (const { slider, value, digits } of sliderMap) {
         const sliderEl = document.getElementById(slider);

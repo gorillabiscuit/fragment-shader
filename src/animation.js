@@ -1,5 +1,5 @@
-import { initializeMetaballs, updatePhysics, getMetaballPositions, getMetaballVelocities, setTurbulence, setViscousDamping, setVorticity } from './physics.js';
-import { drawMetaballs } from './webgl-setup.js';
+import { initializeMetaballs, updatePhysics, getMetaballPositions, getMetaballVelocities, setTurbulence, setViscousDamping, setVorticity, setSurfaceTension, setGravity, setRepulsions, boundaryCenter, getBoundaryRadius } from './physics.js';
+import { drawMetaballs, drawCircularBoundary, setupBuffers } from './webgl-setup.js';
 import { getControlValues } from './ui-controls.js';
 
 export function startAnimation(gl, shaderProgram) {
@@ -43,10 +43,36 @@ export function startAnimation(gl, shaderProgram) {
             controls['vorticity-toggle'],
             parseFloat(controls['vorticity-slider'])
         );
-        // TODO: Wire up other physics toggles and sliders
+        // Surface Tension
+        setSurfaceTension(
+            controls['surface-tension-toggle'],
+            parseFloat(controls['surface-tension-slider'])
+        );
+        // Gravity
+        setGravity(
+            controls['gravity-toggle'],
+            parseFloat(controls['gravity-slider'])
+        );
+        // Repulsion (per-ball)
+        setRepulsions(
+            [
+                controls['repulsion1-toggle'],
+                controls['repulsion2-toggle'],
+                controls['repulsion3-toggle']
+            ],
+            [
+                parseFloat(controls['repulsion1-slider']),
+                parseFloat(controls['repulsion2-slider']),
+                parseFloat(controls['repulsion3-slider'])
+            ]
+        );
         updatePhysics();
         const positions = getMetaballPositions();
         drawMetaballs(gl, shaderProgram, positions);
+        if (controls['circular-boundary-toggle']) {
+            drawCircularBoundary(gl, boundaryCenter, getBoundaryRadius());
+            setupBuffers(gl, shaderProgram); // Restore metaball state
+        }
         requestAnimationFrame(animate);
     }
     animate();
