@@ -19,6 +19,26 @@ let repulsionToggles = [false, false, false];
 let repulsionStrengths = [0.02, 0.02, 0.02];
 const repulsionRadius = 0.2;
 
+let initialPositions = [];
+let returningToOrigin = false;
+let returnSpringConstant = 0.5;
+let returnDamping = 0.8; // Damping coefficient for smooth stop
+export function setReturnDamping(d) { returnDamping = d; }
+
+let returnThreshold = 0.06;
+export function setReturnThreshold(t) { returnThreshold = t; }
+
+let returnTimeout = null;
+
+let initialVelocities = [];
+let pendingVelocityKick = false;
+let velocityKick = [];
+
+let maxSpeed = 0.05;
+let softCapEnabled = true;
+export function setMaxSpeed(v) { maxSpeed = v; }
+export function setSoftCapEnabled(enabled) { softCapEnabled = enabled; }
+
 export function setTurbulence(value) {
     turbulence = value;
 }
@@ -48,22 +68,34 @@ export function setRepulsions(toggles, strengths) {
     repulsionStrengths = strengths;
 }
 
+export function setReturnSpringConstant(k) { returnSpringConstant = k; }
+export function triggerReturnToStart() {
+    returningToOrigin = true;
+}
+
 export function initializeMetaballs() {
     metaballState.positions = [];
     metaballState.velocities = [];
     const radius = 0.4;
     const angleStep = (Math.PI * 2) / maxMetaballs;
+    initialPositions = [];
+    initialVelocities = [];
     for (let i = 0; i < maxMetaballs; i++) {
         const angle = -Math.PI/2 + (i * angleStep);
         const x = Math.cos(angle) * radius + 0.5;
         const y = Math.sin(angle) * radius + 0.5;
         metaballState.positions.push(x, y);
+        initialPositions.push(x, y);
         // Give each metaball a small initial velocity
-        metaballState.velocities.push(Math.cos(angle + Math.PI/2) * 0.005, Math.sin(angle + Math.PI/2) * 0.005);
+        const vx = Math.cos(angle + Math.PI/2) * 0.005;
+        const vy = Math.sin(angle + Math.PI/2) * 0.005;
+        metaballState.velocities.push(vx, vy);
+        initialVelocities.push(vx, vy);
     }
 }
 
 export function updatePhysics() {
+    let allClose = true;
     for (let i = 0; i < maxMetaballs; i++) {
         const idx = i * 2;
         let x = metaballState.positions[idx];
@@ -122,6 +154,26 @@ export function updatePhysics() {
                 }
             }
         }
+        // Return to start spring force
+        if (returningToOrigin) {
+            const x0 = initialPositions[idx];
+            const y0 = initialPositions[idx + 1];
+            const dx = x0 - x;
+            const dy = y0 - y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            vx += dx * returnSpringConstant;
+            vy += dy * returnSpringConstant;
+            // Damping
+            vx *= returnDamping;
+            vy *= returnDamping;
+            // Check if close enough (threshold returnThreshold)
+            if (dist > returnThreshold) allClose = false;
+            else {
+                // Snap to initial position
+                x = x0;
+                y = y0;
+            }
+        }
         // Apply viscous damping
         const damping = viscousDampingEnabled ? viscousDampingValue : 1.0;
         vx *= damping;
@@ -149,6 +201,50 @@ export function updatePhysics() {
         metaballState.positions[idx + 1] = y;
         metaballState.velocities[idx] = vx;
         metaballState.velocities[idx + 1] = vy;
+    }
+    if (returningToOrigin && allClose) {
+        if (!returnTimeout) {
+            returnTimeout = setTimeout(() => {
+                velocityKick = initialVelocities.slice();
+                pendingVelocityKick = true;
+                returningToOrigin = false;
+                returnTimeout = null;
+            }, 200);
+        }
+    } else if (!allClose && returnTimeout) {
+        clearTimeout(returnTimeout);
+        returnTimeout = null;
+    }
+    // Apply velocity kick if pending
+    if (pendingVelocityKick) {
+        for (let i = 0; i < maxMetaballs; i++) {
+            const angle = Math.random() * 2 * Math.PI;
+            const mag = 0.01;
+            metaballState.velocities[i*2] = Math.cos(angle) * mag;
+            metaballState.velocities[i*2+1] = Math.sin(angle) * mag;
+        }
+        pendingVelocityKick = false;
+    }
+    // Apply speed cap (hard or soft)
+    for (let i = 0; i < maxMetaballs; i++) {
+        const idx = i * 2;
+        let vx = metaballState.velocities[idx];
+        let vy = metaballState.velocities[idx + 1];
+        const speed = Math.sqrt(vx * vx + vy * vy);
+        if (speed > maxSpeed) {
+            if (softCapEnabled) {
+                // Soft cap: damp velocity
+                vx *= 0.9;
+                vy *= 0.9;
+            } else {
+                // Hard cap: clamp to maxSpeed
+                const scale = maxSpeed / speed;
+                vx *= scale;
+                vy *= scale;
+            }
+            metaballState.velocities[idx] = vx;
+            metaballState.velocities[idx + 1] = vy;
+        }
     }
 }
 

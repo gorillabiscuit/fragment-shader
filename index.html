@@ -418,6 +418,44 @@
                 <span class="slider-value">Field Strength: <span id="metaball-visual-size-value">0.003125</span></span>
             </div>
         </div>
+
+        <!-- Return to Start Controls -->
+        <div class="control-group">
+            <div class="control-header">
+                <span>Return to Start</span>
+                <button id="return-to-start-button" class="force-type-button">Return to Start</button>
+            </div>
+            <div class="slider-container">
+                <input type="range" id="return-spring-slider" class="range-slider" min="0.001" max="0.2" step="0.001" value="0.01">
+                <span class="slider-value">Spring: <span id="return-spring-value">0.010</span></span>
+            </div>
+            <div class="slider-container">
+                <input type="range" id="return-damping-slider" class="range-slider" min="0.5" max="1.0" step="0.01" value="0.8">
+                <span class="slider-value">Damping: <span id="return-damping-value">0.80</span></span>
+            </div>
+            <div class="slider-container">
+                <input type="range" id="return-threshold-slider" class="range-slider" min="0.05" max="0.06" step="0.0005" value="0.055">
+                <span class="slider-value">Threshold: <span id="return-threshold-value">0.055</span></span>
+            </div>
+        </div>
+
+        <!-- Energy Control -->
+        <div class="control-group">
+            <div class="control-header">
+                <span>Energy Control</span>
+            </div>
+            <div class="slider-container">
+                <input type="range" id="max-speed-slider" class="range-slider" min="0.01" max="0.2" step="0.001" value="0.05">
+                <span class="slider-value">Max Speed: <span id="max-speed-value">0.050</span></span>
+            </div>
+            <div class="control-header">
+                <span>Soft Cap</span>
+                <label class="toggle-switch">
+                    <input type="checkbox" id="soft-cap-toggle" checked>
+                    <span class="toggle-slider"></span>
+                </label>
+            </div>
+        </div>
     </div>
 
 <script type="module" src="/src/main.js"></script>

@@ -1,4 +1,4 @@
-import { initializeMetaballs, updatePhysics, getMetaballPositions, getMetaballVelocities, setTurbulence, setViscousDamping, setVorticity, setSurfaceTension, setGravity, setRepulsions, boundaryCenter, getBoundaryRadius } from './physics.js';
+import { initializeMetaballs, updatePhysics, getMetaballPositions, getMetaballVelocities, setTurbulence, setViscousDamping, setVorticity, setSurfaceTension, setGravity, setRepulsions, boundaryCenter, getBoundaryRadius, triggerReturnToStart, setReturnSpringConstant, setReturnDamping, setReturnThreshold, setMaxSpeed, setSoftCapEnabled } from './physics.js';
 import { drawMetaballs, drawCircularBoundary, setupBuffers } from './webgl-setup.js';
 import { getControlValues } from './ui-controls.js';
 
@@ -77,3 +77,47 @@ export function startAnimation(gl, shaderProgram) {
     }
     animate();
 }
+
+window.addEventListener('DOMContentLoaded', () => {
+    const returnBtn = document.getElementById('return-to-start-button');
+    if (returnBtn) {
+        returnBtn.addEventListener('click', () => {
+            triggerReturnToStart();
+        });
+    }
+    const springSlider = document.getElementById('return-spring-slider');
+    if (springSlider) {
+        setReturnSpringConstant(parseFloat(springSlider.value));
+        springSlider.addEventListener('input', e => {
+            setReturnSpringConstant(parseFloat(e.target.value));
+        });
+    }
+    const dampingSlider = document.getElementById('return-damping-slider');
+    if (dampingSlider) {
+        setReturnDamping(parseFloat(dampingSlider.value));
+        dampingSlider.addEventListener('input', e => {
+            setReturnDamping(parseFloat(e.target.value));
+        });
+    }
+    const thresholdSlider = document.getElementById('return-threshold-slider');
+    if (thresholdSlider) {
+        setReturnThreshold(parseFloat(thresholdSlider.value));
+        thresholdSlider.addEventListener('input', e => {
+            setReturnThreshold(parseFloat(e.target.value));
+        });
+    }
+    const maxSpeedSlider = document.getElementById('max-speed-slider');
+    if (maxSpeedSlider) {
+        setMaxSpeed(parseFloat(maxSpeedSlider.value));
+        maxSpeedSlider.addEventListener('input', e => {
+            setMaxSpeed(parseFloat(e.target.value));
+        });
+    }
+    const softCapToggle = document.getElementById('soft-cap-toggle');
+    if (softCapToggle) {
+        setSoftCapEnabled(softCapToggle.checked);
+        softCapToggle.addEventListener('change', e => {
+            setSoftCapEnabled(e.target.checked);
+        });
+    }
+});

@@ -13,7 +13,13 @@ const controlIds = [
     'repulsion1-toggle', 'repulsion2-toggle', 'repulsion3-toggle',
     'repulsion1-slider', 'repulsion2-slider', 'repulsion3-slider',
     'circular-boundary-toggle',
-    'metaball-visual-size-slider'
+    'metaball-visual-size-slider',
+    'return-to-start-button',
+    'return-spring-slider',
+    'return-damping-slider',
+    'return-threshold-slider',
+    'max-speed-slider',
+    'soft-cap-toggle'
 ];
 
 const listeners = [];
@@ -58,6 +64,10 @@ function updateSliderDisplays() {
         { slider: 'repulsion2-slider', value: 'repulsion2-value', digits: 12 },
         { slider: 'repulsion3-slider', value: 'repulsion3-value', digits: 12 },
         { slider: 'metaball-visual-size-slider', value: 'metaball-visual-size-value', digits: 6 },
+        { slider: 'return-spring-slider', value: 'return-spring-value', digits: 3 },
+        { slider: 'return-damping-slider', value: 'return-damping-value', digits: 3 },
+        { slider: 'return-threshold-slider', value: 'return-threshold-value', digits: 4 },
+        { slider: 'max-speed-slider', value: 'max-speed-value', digits: 3 },
     ];
     for (const { slider, value, digits } of sliderMap) {
         const sliderEl = document.getElementById(slider);
