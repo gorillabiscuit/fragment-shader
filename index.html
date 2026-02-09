@@ -2,465 +2,82 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Metaballs in WebGL - Full Example</title>
+    <title>Soothing Metaballs</title>
     <style>
-        body, html {
+        *, *::before, *::after {
             margin: 0;
             padding: 0;
+            box-sizing: border-box;
+        }
+        body, html {
+            width: 100%;
+            height: 100%;
             overflow: hidden;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+            /* Dev background — the shader is transparent; this colour shows through */
+            background: #207DCA;
         }
-        
         canvas {
-            width: 800px;
-            height: 800px;
             display: block;
-            background-color:#207DCA;
+            width: 100vw;
+            height: 100vh;
+            background: transparent;
         }
-
-        #controls-panel {
+        #controls {
             position: fixed;
-            top: 20px;
-            right: 20px;
-            background: rgba(0, 0, 0, 0.8);
-            padding: 20px;
+            bottom: 20px;
+            left: 20px;
+            background: rgba(0, 0, 0, 0.35);
+            backdrop-filter: blur(8px);
+            padding: 14px 18px;
             border-radius: 10px;
-            color: white;
-            width: 300px;
-            max-height: 90vh;
-            overflow-y: auto;
-            z-index: 1000;
-            backdrop-filter: blur(5px);
-        }
-
-        .control-group {
-            margin-bottom: 20px;
-            padding: 10px;
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: 5px;
-        }
-
-        .control-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 10px;
-        }
-
-        .toggle-switch {
-            position: relative;
-            display: inline-block;
-            width: 50px;
-            height: 24px;
-        }
-
-        .toggle-switch input {
-            opacity: 0;
-            width: 0;
-            height: 0;
-        }
-
-        .toggle-slider {
-            position: absolute;
-            cursor: pointer;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background-color: #ccc;
-            transition: .4s;
-            border-radius: 24px;
-        }
-
-        .toggle-slider:before {
-            position: absolute;
-            content: "";
-            height: 16px;
-            width: 16px;
-            left: 4px;
-            bottom: 4px;
-            background-color: white;
-            transition: .4s;
-            border-radius: 50%;
-        }
-
-        input:checked + .toggle-slider {
-            background-color: #2196F3;
-        }
-
-        input:checked + .toggle-slider:before {
-            transform: translateX(26px);
-        }
-
-        .slider-container {
+            color: rgba(255, 255, 255, 0.8);
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            font-size: 12px;
+            z-index: 10;
             display: flex;
             flex-direction: column;
-            gap: 5px;
-        }
-
-        .range-slider {
-            width: 100%;
-            margin: 10px 0;
-        }
-
-        .slider-value {
-            font-size: 0.8em;
-            color: #aaa;
-        }
-
-        .color-picker-container {
-            display: flex;
-            align-items: center;
             gap: 10px;
-            margin: 10px 0;
+            min-width: 200px;
         }
-
-        .color-picker {
-            -webkit-appearance: none;
-            width: 50px;
-            height: 30px;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-        }
-
-        .color-picker::-webkit-color-swatch-wrapper {
-            padding: 0;
-        }
-
-        .color-picker::-webkit-color-swatch {
-            border: none;
-            border-radius: 5px;
-        }
-
-        /* Add styles for the force type selector */
-        .force-type-selector {
+        #controls label {
             display: flex;
             justify-content: space-between;
-            margin: 10px 0;
-            gap: 10px;
+            align-items: center;
+            gap: 12px;
         }
-
-        .force-type-button {
+        #controls input[type="range"] {
             flex: 1;
-            padding: 8px;
-            border: 1px solid rgba(255, 255, 255, 0.2);
-            background: rgba(255, 255, 255, 0.1);
-            color: white;
-            border-radius: 5px;
-            cursor: pointer;
-            transition: all 0.3s ease;
+            height: 4px;
+            -webkit-appearance: none;
+            appearance: none;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 2px;
+            outline: none;
         }
-
-        .force-type-button.active {
-            background: #2196F3;
-            border-color: #2196F3;
+        #controls input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.8);
+            cursor: pointer;
         }
     </style>
 </head>
 <body>
-    <canvas id="glcanvas" width="500" height="500"></canvas>
-    
-    <div id="controls-panel">
-        <h3 style="margin-top: 0;">Effect Controls</h3>
-        
-        <!-- Color Controls -->
-        <div class="control-group">
-            <h4 style="margin-top: 0;">Color Settings</h4>
-            
-            <!-- Base Color -->
-            <div class="control-header">
-                <span>Base Color</span>
-                <div class="color-picker-container">
-                    <input type="color" id="base-color" class="color-picker" value="#FFFFFF">
-                </div>
-            </div>
+    <canvas id="glcanvas"></canvas>
 
-            <!-- Secondary Color -->
-            <div class="control-header">
-                <span>Secondary Color</span>
-                <div class="color-picker-container">
-                    <input type="color" id="secondary-color" class="color-picker" value="#88CCFF">
-                </div>
-            </div>
-
-            <!-- Background Color -->
-            <div class="control-header">
-                <span>Background Color</span>
-                <div class="color-picker-container">
-                    <input type="color" id="background-color" class="color-picker" value="#207DCA">
-                </div>
-            </div>
-
-            <!-- Velocity Color Effect -->
-            <div class="control-header">
-                <span>Velocity Color</span>
-                <label class="toggle-switch">
-                    <input type="checkbox" id="velocity-color-toggle">
-                    <span class="toggle-slider"></span>
-                </label>
-            </div>
-            <div class="slider-container">
-                <input type="range" id="velocity-color-slider" class="range-slider" 
-                       min="0.1" max="2.0" step="0.1" value="1.0">
-                <span class="slider-value">Intensity: <span id="velocity-color-value">1.0</span></span>
-            </div>
-
-            <!-- Distance Color Effect -->
-            <div class="control-header">
-                <span>Distance Blend</span>
-                <label class="toggle-switch">
-                    <input type="checkbox" id="distance-color-toggle">
-                    <span class="toggle-slider"></span>
-                </label>
-            </div>
-            <div class="slider-container">
-                <input type="range" id="distance-color-slider" class="range-slider" 
-                       min="0.1" max="2.0" step="0.1" value="1.0">
-                <span class="slider-value">Blend: <span id="distance-color-value">1.0</span></span>
-            </div>
-        </div>
-
-        <!-- Mouse Interaction -->
-        <div class="control-group">
-            <h4 style="margin-top: 0;">Mouse Interaction</h4>
-            
-            <!-- Mouse Force Toggle -->
-            <div class="control-header">
-                <span>Mouse Force</span>
-                <label class="toggle-switch">
-                    <input type="checkbox" id="mouse-force-toggle">
-                    <span class="toggle-slider"></span>
-                </label>
-            </div>
-
-            <!-- Force Type Selector -->
-            <div class="force-type-selector">
-                <button id="attract-button" class="force-type-button active">Attract</button>
-                <button id="repel-button" class="force-type-button">Repel</button>
-            </div>
-
-            <!-- Force Strength -->
-            <div class="slider-container">
-                <input type="range" id="mouse-force-slider" class="range-slider" 
-                       min="0.1" max="2.0" step="0.1" value="1.0">
-                <span class="slider-value">Force: <span id="mouse-force-value">1.0</span></span>
-            </div>
-
-            <!-- Effect Radius -->
-            <div class="slider-container">
-                <input type="range" id="mouse-radius-slider" class="range-slider" 
-                       min="50" max="300" step="10" value="150">
-                <span class="slider-value">Radius: <span id="mouse-radius-value">150</span>px</span>
-            </div>
-        </div>
-
-        <!-- Viscous Damping -->
-        <div class="control-group">
-            <div class="control-header">
-                <span>Viscous Damping</span>
-                <label class="toggle-switch">
-                    <input type="checkbox" id="viscous-damping-toggle">
-                    <span class="toggle-slider"></span>
-                </label>
-            </div>
-            <div class="slider-container">
-                <input type="range" id="viscous-damping-slider" class="range-slider" 
-                       min="0.98" max="1.0" step="0.001" value="0.995">
-                <span class="slider-value">Strength: <span id="viscous-damping-value">0.99500</span></span>
-            </div>
-        </div>
-
-        <!-- Vorticity -->
-        <div class="control-group">
-            <div class="control-header">
-                <span>Vorticity</span>
-                <label class="toggle-switch">
-                    <input type="checkbox" id="vorticity-toggle">
-                    <span class="toggle-slider"></span>
-                </label>
-            </div>
-            <div class="slider-container">
-                <input type="range" id="vorticity-slider" class="range-slider" 
-                       min="0.0" max="0.0001" step="0.000001" value="0.0">
-                <span class="slider-value">Strength: <span id="vorticity-value">0.000000000000</span></span>
-            </div>
-        </div>
-
-        <!-- Turbulence -->
-        <div class="control-group">
-            <div class="control-header">
-                <span>Turbulence</span>
-                <label class="toggle-switch">
-                    <input type="checkbox" id="turbulence-toggle">
-                    <span class="toggle-slider"></span>
-                </label>
-            </div>
-            <div class="slider-container">
-                <input type="range" id="turbulence-slider" class="range-slider" 
-                       min="0.0001" max="0.01" step="0.0001" value="0.001">
-                <span class="slider-value">Strength: <span id="turbulence-value">0.001</span></span>
-            </div>
-        </div>
-
-        <!-- Angular Momentum -->
-        <div class="control-group">
-            <div class="control-header">
-                <span>Angular Momentum</span>
-                <label class="toggle-switch">
-                    <input type="checkbox" id="angular-momentum-toggle">
-                    <span class="toggle-slider"></span>
-                </label>
-            </div>
-            <div class="slider-container">
-                <input type="range" id="angular-momentum-slider" class="range-slider" 
-                       min="0.00001" max="0.0001" step="0.00001" value="0.00002">
-                <span class="slider-value">Strength: <span id="angular-momentum-value">0.0000</span></span>
-            </div>
-        </div>
-
-        <!-- Surface Tension -->
-        <div class="control-group">
-            <div class="control-header">
-                <span>Surface Tension</span>
-                <label class="toggle-switch">
-                    <input type="checkbox" id="surface-tension-toggle">
-                    <span class="toggle-slider"></span>
-                </label>
-            </div>
-            <div class="slider-container">
-                <input type="range" id="surface-tension-slider" class="range-slider" 
-                       min="0.0" max="0.005" step="0.0001" value="0.0">
-                <span class="slider-value">Strength: <span id="surface-tension-value">0.000000000000</span></span>
-            </div>
-        </div>
-
-        <!-- Add after Surface Tension control group -->
-        <!-- Gravity Control -->
-        <div class="control-group">
-            <div class="control-header">
-                <span>Gravity</span>
-                <label class="toggle-switch">
-                    <input type="checkbox" id="gravity-toggle" checked>
-                    <span class="toggle-slider"></span>
-                </label>
-            </div>
-            <div class="slider-container">
-                <input type="range" id="gravity-slider" class="range-slider" 
-                       min="0.0001" max="0.002" step="0.0001" value="0.0005">
-                <span class="slider-value">Strength: <span id="gravity-value">0.0005</span></span>
-            </div>
-        </div>
-
-        <!-- Repulsion Controls -->
-        <div class="control-group">
-            <div class="control-header">
-                <span>Ball 1 Repulsion</span>
-                <label class="toggle-switch">
-                    <input type="checkbox" id="repulsion1-toggle">
-                    <span class="toggle-slider"></span>
-                </label>
-            </div>
-            <div class="slider-container">
-                <input type="range" id="repulsion1-slider" class="range-slider" min="0.0" max="0.01" step="0.0001" value="0.002">
-                <span class="slider-value">Strength: <span id="repulsion1-value">0.002000000000</span></span>
-            </div>
-        </div>
-        <div class="control-group">
-            <div class="control-header">
-                <span>Ball 2 Repulsion</span>
-                <label class="toggle-switch">
-                    <input type="checkbox" id="repulsion2-toggle">
-                    <span class="toggle-slider"></span>
-                </label>
-            </div>
-            <div class="slider-container">
-                <input type="range" id="repulsion2-slider" class="range-slider" min="0.0" max="0.01" step="0.0001" value="0.002">
-                <span class="slider-value">Strength: <span id="repulsion2-value">0.002000000000</span></span>
-            </div>
-        </div>
-        <div class="control-group">
-            <div class="control-header">
-                <span>Ball 3 Repulsion</span>
-                <label class="toggle-switch">
-                    <input type="checkbox" id="repulsion3-toggle">
-                    <span class="toggle-slider"></span>
-                </label>
-            </div>
-            <div class="slider-container">
-                <input type="range" id="repulsion3-slider" class="range-slider" min="0.0" max="0.01" step="0.0001" value="0.002">
-                <span class="slider-value">Strength: <span id="repulsion3-value">0.002000000000</span></span>
-            </div>
-        </div>
-
-        <!-- Circular Boundary Toggle -->
-        <div class="control-group">
-            <div class="control-header">
-                <span>Show Circular Boundary</span>
-                <label class="toggle-switch">
-                    <input type="checkbox" id="circular-boundary-toggle" checked>
-                    <span class="toggle-slider"></span>
-                </label>
-            </div>
-        </div>
-
-        <!-- Metaball Visual Size Slider -->
-        <div class="control-group">
-            <div class="control-header">
-                <span>Metaball Visual Size</span>
-            </div>
-            <div class="slider-container">
-                <input type="range" id="metaball-visual-size-slider" class="range-slider" min="0.001" max="0.01" step="0.0001" value="0.003125">
-                <span class="slider-value">Field Strength: <span id="metaball-visual-size-value">0.003125</span></span>
-            </div>
-        </div>
-
-        <!-- Return to Start Controls -->
-        <div class="control-group">
-            <div class="control-header">
-                <span>Return to Start</span>
-                <button id="return-to-start-button" class="force-type-button">Return to Start</button>
-            </div>
-            <div class="slider-container">
-                <input type="range" id="return-spring-slider" class="range-slider" min="0.001" max="0.2" step="0.001" value="0.01">
-                <span class="slider-value">Spring: <span id="return-spring-value">0.010</span></span>
-            </div>
-            <div class="slider-container">
-                <input type="range" id="return-damping-slider" class="range-slider" min="0.5" max="1.0" step="0.01" value="0.8">
-                <span class="slider-value">Damping: <span id="return-damping-value">0.80</span></span>
-            </div>
-            <div class="slider-container">
-                <input type="range" id="return-threshold-slider" class="range-slider" min="0.05" max="0.06" step="0.0005" value="0.055">
-                <span class="slider-value">Threshold: <span id="return-threshold-value">0.055</span></span>
-            </div>
-        </div>
-
-        <!-- Energy Control -->
-        <div class="control-group">
-            <div class="control-header">
-                <span>Energy Control</span>
-            </div>
-            <div class="slider-container">
-                <input type="range" id="max-speed-slider" class="range-slider" min="0.01" max="0.2" step="0.001" value="0.05">
-                <span class="slider-value">Max Speed: <span id="max-speed-value">0.050</span></span>
-            </div>
-            <div class="control-header">
-                <span>Soft Cap</span>
-                <label class="toggle-switch">
-                    <input type="checkbox" id="soft-cap-toggle" checked>
-                    <span class="toggle-slider"></span>
-                </label>
-            </div>
-        </div>
+    <div id="controls">
+        <label>
+            <span>Ball Size</span>
+            <input type="range" id="ball-size" min="0.0001" max="0.012" step="0.0001" value="0.003125">
+        </label>
+        <label>
+            <span>Boundary</span>
+            <input type="range" id="boundary-radius" min="0.20" max="0.48" step="0.005" value="0.44">
+        </label>
     </div>
 
-<script type="module" src="/src/main.js"></script>
-    
+    <script type="module" src="/src/main.js"></script>
 </body>
 </html>
-
-

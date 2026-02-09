@@ -1,265 +1,389 @@
-const maxMetaballs = 3;
+// ─── Constants ───────────────────────────────────────────────────────────────
+const NUM_BALLS = 3;
+export const METABALL_RADIUS = 0.1;
 
-let metaballState = {
-    positions: [],
-    velocities: [],
+// ─── Soft circular boundary (aspect-ratio-corrected space) ──────────────────
+// Inner radius: where repulsion force begins (weakest)
+// Outer radius: where repulsion is at maximum / hard clamp
+// Gap between inner and outer is fixed at 0.08
+const BOUNDARY_GAP = 0.08;
+const DEFAULT_OUTER = 0.44;          // reference size all distances were tuned for
+let outerRadius = DEFAULT_OUTER;
+let innerRadius = outerRadius - BOUNDARY_GAP;
+const MAX_BOUNDARY_FORCE = 0.006;
+
+export function getInnerRadius() { return innerRadius; }
+export function getOuterRadius() { return outerRadius; }
+export function setBoundaryRadius(outer) {
+    outerRadius = outer;
+    innerRadius = outer - BOUNDARY_GAP;
+}
+/** Scale factor: all distance-dependent values multiply by this */
+function boundaryScale() { return outerRadius / DEFAULT_OUTER; }
+
+// ─── Aspect ratio (set from canvas) ─────────────────────────────────────────
+let aspectRatio = 1;
+export function setAspectRatio(ar) { aspectRatio = ar; }
+
+// ─── State ───────────────────────────────────────────────────────────────────
+let positions = [];   // flat [x0,y0, x1,y1, x2,y2]
+let velocities = [];  // flat [vx0,vy0, ...]
+
+// ─── Force strengths (current, interpolated) ────────────────────────────────
+let forces = {
+    gravity:        0.0003,
+    vorticity:      0.0,
+    turbulence:     0.0005,
+    surfaceTension: 0.0,
+    repulsionBall:  -1,
+    repulsionStr:   0.0,
 };
 
-let turbulence = 0.001; // Default, matches new slider
-let viscousDampingEnabled = false;
-let viscousDampingValue = 0.99;
-let vorticityEnabled = false;
-let vorticityValue = 0.0;
-let surfaceTensionEnabled = false;
-let surfaceTensionValue = 0.0;
-let gravityEnabled = false;
-let gravityValue = 0.0;
-let repulsionEnabled = true;
-let repulsionToggles = [false, false, false];
-let repulsionStrengths = [0.02, 0.02, 0.02];
-const repulsionRadius = 0.2;
+// Target values we lerp toward
+let targets = { ...forces };
 
-let initialPositions = [];
-let returningToOrigin = false;
-let returnSpringConstant = 0.5;
-let returnDamping = 0.8; // Damping coefficient for smooth stop
-export function setReturnDamping(d) { returnDamping = d; }
+// ─── Speed governor ─────────────────────────────────────────────────────────
+const BASE_MAX_SPEED = 0.012;        // scaled by boundary
+const BASE_GLOBAL_DAMPING = 0.995;   // tightens with smaller boundary
 
-let returnThreshold = 0.06;
-export function setReturnThreshold(t) { returnThreshold = t; }
+// ─── Clump / spread detection ───────────────────────────────────────────────
+let clumpTimer = 0;
+let spreadTimer = 0;
+const BASE_CLUMP_THRESHOLD = 0.12;   // scaled by boundary
+const BASE_SPREAD_THRESHOLD = 0.45;  // scaled by boundary
+const CLUMP_PATIENCE = 5.0;
+const SPREAD_PATIENCE = 6.0;
 
-let returnTimeout = null;
+// ─── Phase / mood system ────────────────────────────────────────────────────
+const MOODS = [
+    {
+        name: 'gentleOrbit',
+        gravity: 0.0003,
+        vorticity: 0.00004,
+        turbulence: 0.0003,
+        surfaceTension: 0.0008,
+        repulsion: false,
+    },
+    {
+        name: 'softAttract',
+        gravity: 0.0006,
+        vorticity: 0.0,
+        turbulence: 0.0002,
+        surfaceTension: 0.001,
+        repulsion: false,
+    },
+    {
+        name: 'driftApart',
+        gravity: 0.0001,
+        vorticity: 0.00002,
+        turbulence: 0.0006,
+        surfaceTension: 0.0,
+        repulsion: true,
+        repulsionStr: 0.003,
+    },
+    {
+        name: 'turbulentSwirl',
+        gravity: 0.0002,
+        vorticity: 0.00006,
+        turbulence: 0.001,
+        surfaceTension: 0.0005,
+        repulsion: false,
+    },
+    {
+        name: 'drainCircle',
+        gravity: 0.00015,
+        vorticity: 0.00008,
+        turbulence: 0.0002,
+        surfaceTension: 0.0006,
+        repulsion: false,
+    },
+    {
+        name: 'gentlePulse',
+        gravity: 0.0005,
+        vorticity: 0.00001,
+        turbulence: 0.0004,
+        surfaceTension: 0.0012,
+        repulsion: false,
+    },
+];
 
-let initialVelocities = [];
-let pendingVelocityKick = false;
-let velocityKick = [];
+let currentMoodIndex = 0;
+let moodTimeRemaining = 0;
+let lastFrameTime = 0;
 
-let maxSpeed = 0.05;
-let softCapEnabled = true;
-export function setMaxSpeed(v) { maxSpeed = v; }
-export function setSoftCapEnabled(enabled) { softCapEnabled = enabled; }
+// ─── Lerp rate ──────────────────────────────────────────────────────────────
+const LERP_SPEED = 0.4;
 
-export function setTurbulence(value) {
-    turbulence = value;
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+function lerp(a, b, t) {
+    return a + (b - a) * Math.min(t, 1.0);
 }
 
-export function setViscousDamping(enabled, value) {
-    viscousDampingEnabled = enabled;
-    viscousDampingValue = value;
+function randomRange(min, max) {
+    return min + Math.random() * (max - min);
 }
 
-export function setVorticity(enabled, value) {
-    vorticityEnabled = enabled;
-    vorticityValue = value;
+function correctedDistFromCenter(x, y) {
+    const dx = (x - 0.5) * aspectRatio;
+    const dy = y - 0.5;
+    return Math.sqrt(dx * dx + dy * dy);
 }
 
-export function setSurfaceTension(enabled, value) {
-    surfaceTensionEnabled = enabled;
-    surfaceTensionValue = value;
+function avgInterBallDistance() {
+    let total = 0;
+    let count = 0;
+    for (let i = 0; i < NUM_BALLS; i++) {
+        for (let j = i + 1; j < NUM_BALLS; j++) {
+            const dx = positions[i * 2] - positions[j * 2];
+            const dy = positions[i * 2 + 1] - positions[j * 2 + 1];
+            total += Math.sqrt(dx * dx + dy * dy);
+            count++;
+        }
+    }
+    return total / count;
 }
 
-export function setGravity(enabled, value) {
-    gravityEnabled = enabled;
-    gravityValue = value;
+// ─── Mood selection ─────────────────────────────────────────────────────────
+function pickNextMood() {
+    let next;
+    do {
+        next = Math.floor(Math.random() * MOODS.length);
+    } while (next === currentMoodIndex && MOODS.length > 1);
+    currentMoodIndex = next;
+    moodTimeRemaining = randomRange(10, 22);
+    applyMoodTargets(MOODS[currentMoodIndex]);
 }
 
-export function setRepulsions(toggles, strengths) {
-    repulsionToggles = toggles;
-    repulsionStrengths = strengths;
-}
+function applyMoodTargets(mood) {
+    targets.gravity = mood.gravity;
+    targets.vorticity = mood.vorticity;
+    targets.turbulence = mood.turbulence;
+    targets.surfaceTension = mood.surfaceTension;
 
-export function setReturnSpringConstant(k) { returnSpringConstant = k; }
-export function triggerReturnToStart() {
-    returningToOrigin = true;
-}
-
-export function initializeMetaballs() {
-    metaballState.positions = [];
-    metaballState.velocities = [];
-    const radius = 0.4;
-    const angleStep = (Math.PI * 2) / maxMetaballs;
-    initialPositions = [];
-    initialVelocities = [];
-    for (let i = 0; i < maxMetaballs; i++) {
-        const angle = -Math.PI/2 + (i * angleStep);
-        const x = Math.cos(angle) * radius + 0.5;
-        const y = Math.sin(angle) * radius + 0.5;
-        metaballState.positions.push(x, y);
-        initialPositions.push(x, y);
-        // Give each metaball a small initial velocity
-        const vx = Math.cos(angle + Math.PI/2) * 0.005;
-        const vy = Math.sin(angle + Math.PI/2) * 0.005;
-        metaballState.velocities.push(vx, vy);
-        initialVelocities.push(vx, vy);
+    if (mood.repulsion) {
+        targets.repulsionBall = Math.floor(Math.random() * NUM_BALLS);
+        targets.repulsionStr = mood.repulsionStr || 0.003;
+    } else {
+        targets.repulsionBall = -1;
+        targets.repulsionStr = 0.0;
     }
 }
 
+// ─── Initialization ─────────────────────────────────────────────────────────
+export function initializeMetaballs() {
+    positions = [];
+    velocities = [];
+    const safeRadius = (innerRadius * 0.65) / Math.max(aspectRatio, 1);
+    const angleStep = (Math.PI * 2) / NUM_BALLS;
+    for (let i = 0; i < NUM_BALLS; i++) {
+        const angle = -Math.PI / 2 + i * angleStep;
+        positions.push(
+            Math.cos(angle) * safeRadius + 0.5,
+            Math.sin(angle) * safeRadius + 0.5
+        );
+        velocities.push(
+            Math.cos(angle + Math.PI / 2) * 0.003,
+            Math.sin(angle + Math.PI / 2) * 0.003
+        );
+    }
+    lastFrameTime = performance.now();
+    pickNextMood();
+}
+
+// ─── Physics update (called every frame) ────────────────────────────────────
 export function updatePhysics() {
-    let allClose = true;
-    for (let i = 0; i < maxMetaballs; i++) {
+    const now = performance.now();
+    const dt = Math.min((now - lastFrameTime) / 1000, 0.05);
+    lastFrameTime = now;
+
+    // ── Mood timer ──────────────────────────────────────────────────────────
+    moodTimeRemaining -= dt;
+    if (moodTimeRemaining <= 0) {
+        pickNextMood();
+    }
+
+    // ── Lerp forces toward targets ──────────────────────────────────────────
+    const lerpT = LERP_SPEED * dt;
+    forces.gravity = lerp(forces.gravity, targets.gravity, lerpT);
+    forces.vorticity = lerp(forces.vorticity, targets.vorticity, lerpT);
+    forces.turbulence = lerp(forces.turbulence, targets.turbulence, lerpT);
+    forces.surfaceTension = lerp(forces.surfaceTension, targets.surfaceTension, lerpT);
+    forces.repulsionStr = lerp(forces.repulsionStr, targets.repulsionStr, lerpT);
+    forces.repulsionBall = targets.repulsionBall;
+
+    // ── Clump / spread detection (scaled to boundary) ─────────────────────
+    const s = boundaryScale();
+    const avgDist = avgInterBallDistance();
+    const clumpThreshold = BASE_CLUMP_THRESHOLD * s;
+    const spreadThreshold = BASE_SPREAD_THRESHOLD * s;
+
+    if (avgDist < clumpThreshold) {
+        clumpTimer += dt;
+        spreadTimer = 0;
+        if (clumpTimer > CLUMP_PATIENCE) {
+            targets.repulsionBall = Math.floor(Math.random() * NUM_BALLS);
+            targets.repulsionStr = 0.004 * s;
+            targets.vorticity = 0.00006;
+            targets.gravity = 0.0001;
+            moodTimeRemaining = randomRange(8, 14);
+            clumpTimer = 0;
+        }
+    } else if (avgDist > spreadThreshold) {
+        spreadTimer += dt;
+        clumpTimer = 0;
+        if (spreadTimer > SPREAD_PATIENCE) {
+            targets.gravity = 0.0007;
+            targets.surfaceTension = 0.001;
+            targets.repulsionBall = -1;
+            targets.repulsionStr = 0.0;
+            moodTimeRemaining = randomRange(8, 14);
+            spreadTimer = 0;
+        }
+    } else {
+        clumpTimer = Math.max(0, clumpTimer - dt * 0.5);
+        spreadTimer = Math.max(0, spreadTimer - dt * 0.5);
+    }
+
+    // ── Apply forces to each ball ───────────────────────────────────────────
+    for (let i = 0; i < NUM_BALLS; i++) {
         const idx = i * 2;
-        let x = metaballState.positions[idx];
-        let y = metaballState.positions[idx + 1];
-        let vx = metaballState.velocities[idx];
-        let vy = metaballState.velocities[idx + 1];
-        // Add turbulence
-        vx += (Math.random() - 0.5) * turbulence;
-        vy += (Math.random() - 0.5) * turbulence;
+        let x = positions[idx];
+        let y = positions[idx + 1];
+        let vx = velocities[idx];
+        let vy = velocities[idx + 1];
+
+        // Turbulence
+        vx += (Math.random() - 0.5) * forces.turbulence;
+        vy += (Math.random() - 0.5) * forces.turbulence;
+
+        // Gravity toward center
+        if (forces.gravity > 0) {
+            const toCx = 0.5 - x;
+            const toCy = 0.5 - y;
+            const distC = Math.sqrt(toCx * toCx + toCy * toCy);
+            if (distC > 0.001) {
+                vx += (toCx / distC) * forces.gravity;
+                vy += (toCy / distC) * forces.gravity;
+            }
+        }
+
         // Vorticity
-        if (vorticityEnabled && vorticityValue > 0) {
-            const toCenter = [0.5 - x, 0.5 - y];
-            const dist = Math.sqrt(toCenter[0] * toCenter[0] + toCenter[1] * toCenter[1]);
-            if (dist > 0.001) {
-                const perpForce = [-toCenter[1], toCenter[0]];
-                vx += (perpForce[0] / dist) * vorticityValue;
-                vy += (perpForce[1] / dist) * vorticityValue;
+        if (forces.vorticity > 0) {
+            const toCx = 0.5 - x;
+            const toCy = 0.5 - y;
+            const distC = Math.sqrt(toCx * toCx + toCy * toCy);
+            if (distC > 0.001) {
+                vx += (-toCy / distC) * forces.vorticity;
+                vy += (toCx / distC) * forces.vorticity;
             }
         }
-        // Surface tension
-        if (surfaceTensionEnabled && surfaceTensionValue > 0) {
-            for (let j = 0; j < maxMetaballs; j++) {
+
+        // Surface tension (distances scaled to boundary)
+        if (forces.surfaceTension > 0) {
+            const optimalDist = 0.25 * s;
+            for (let j = 0; j < NUM_BALLS; j++) {
                 if (i === j) continue;
-                const dx = x - metaballState.positions[j * 2];
-                const dy = y - metaballState.positions[j * 2 + 1];
-                const dist = Math.sqrt(dx * dx + dy * dy);
-                const optimalDist = 0.3;
+                const sdx = x - positions[j * 2];
+                const sdy = y - positions[j * 2 + 1];
+                const dist = Math.sqrt(sdx * sdx + sdy * sdy);
                 if (dist > 0.001) {
-                    // Attractive if too far, repulsive if too close
-                    const force = surfaceTensionValue * (dist - optimalDist);
-                    vx -= (dx / dist) * force;
-                    vy -= (dy / dist) * force;
+                    const force = forces.surfaceTension * (dist - optimalDist);
+                    vx -= (sdx / dist) * force;
+                    vy -= (sdy / dist) * force;
                 }
             }
         }
-        // Gravity
-        if (gravityEnabled && gravityValue > 0) {
-            const toCenter = [0.5 - x, 0.5 - y];
-            const dist = Math.sqrt(toCenter[0] * toCenter[0] + toCenter[1] * toCenter[1]);
-            if (dist > 0.001) {
-                vx += (toCenter[0] / dist) * gravityValue;
-                vy += (toCenter[1] / dist) * gravityValue;
-            }
-        }
-        // Repulsion
-        if (repulsionToggles[i]) {
-            for (let j = 0; j < maxMetaballs; j++) {
+
+        // Repulsion (one ball pushes others — range scaled to boundary)
+        const repulsionRange = 0.35 * s;
+        if (forces.repulsionBall === i && forces.repulsionStr > 0) {
+            for (let j = 0; j < NUM_BALLS; j++) {
                 if (i === j) continue;
-                const dx = x - metaballState.positions[j * 2];
-                const dy = y - metaballState.positions[j * 2 + 1];
-                const dist = Math.sqrt(dx * dx + dy * dy);
-                if (dist < repulsionRadius && dist > 0.001) {
-                    const force = repulsionStrengths[i] * (1.0 - dist / repulsionRadius);
-                    vx += (dx / dist) * force;
-                    vy += (dy / dist) * force;
+                const rdx = positions[j * 2] - x;
+                const rdy = positions[j * 2 + 1] - y;
+                const dist = Math.sqrt(rdx * rdx + rdy * rdy);
+                if (dist > 0.001 && dist < repulsionRange) {
+                    const pushFactor = forces.repulsionStr * s * (1.0 - dist / repulsionRange);
+                    vx -= (rdx / dist) * pushFactor * 0.5;
+                    vy -= (rdy / dist) * pushFactor * 0.5;
                 }
             }
         }
-        // Return to start spring force
-        if (returningToOrigin) {
-            const x0 = initialPositions[idx];
-            const y0 = initialPositions[idx + 1];
-            const dx = x0 - x;
-            const dy = y0 - y;
-            const dist = Math.sqrt(dx * dx + dy * dy);
-            vx += dx * returnSpringConstant;
-            vy += dy * returnSpringConstant;
-            // Damping
-            vx *= returnDamping;
-            vy *= returnDamping;
-            // Check if close enough (threshold returnThreshold)
-            if (dist > returnThreshold) allClose = false;
-            else {
-                // Snap to initial position
-                x = x0;
-                y = y0;
+        if (forces.repulsionBall >= 0 && forces.repulsionBall !== i && forces.repulsionStr > 0) {
+            const ri = forces.repulsionBall;
+            const rdx = x - positions[ri * 2];
+            const rdy = y - positions[ri * 2 + 1];
+            const dist = Math.sqrt(rdx * rdx + rdy * rdy);
+            if (dist > 0.001 && dist < repulsionRange) {
+                const pushFactor = forces.repulsionStr * s * (1.0 - dist / repulsionRange);
+                vx += (rdx / dist) * pushFactor;
+                vy += (rdy / dist) * pushFactor;
             }
         }
-        // Apply viscous damping
-        const damping = viscousDampingEnabled ? viscousDampingValue : 1.0;
+
+        // Global damping (tighter in smaller boundaries)
+        const damping = 1.0 - (1.0 - BASE_GLOBAL_DAMPING) / s;
         vx *= damping;
         vy *= damping;
-        // Move
+
+        // Integrate position
         x += vx;
         y += vy;
-        // Circular boundary bounce
-        const dx = x - boundaryCenter[0];
-        const dy = y - boundaryCenter[1];
-        const dist = Math.sqrt(dx * dx + dy * dy);
-        const effectiveBoundary = getBoundaryRadius() - METABALL_RADIUS;
-        if (dist > effectiveBoundary) {
-            // Clamp to circle
-            const nx = dx / dist;
-            const ny = dy / dist;
-            x = boundaryCenter[0] + nx * effectiveBoundary;
-            y = boundaryCenter[1] + ny * effectiveBoundary;
-            // Reflect velocity
+
+        // ── Soft circular boundary (aspect-ratio-corrected) ─────────────────
+        const dx = x - 0.5;
+        const dy = y - 0.5;
+        const corrDist = correctedDistFromCenter(x, y);
+        const rawDist = Math.sqrt(dx * dx + dy * dy);
+
+        if (corrDist > innerRadius && rawDist > 0.001) {
+            const t = Math.min((corrDist - innerRadius) / (outerRadius - innerRadius), 1.0);
+            const force = t * t * MAX_BOUNDARY_FORCE;
+            vx -= (dx / rawDist) * force;
+            vy -= (dy / rawDist) * force;
+        }
+
+        if (corrDist > outerRadius && rawDist > 0.001) {
+            const scale = outerRadius / corrDist;
+            x = 0.5 + dx * scale;
+            y = 0.5 + dy * scale;
+            const nx = dx / rawDist;
+            const ny = dy / rawDist;
             const dot = vx * nx + vy * ny;
-            vx = vx - 2 * dot * nx;
-            vy = vy - 2 * dot * ny;
+            if (dot > 0) {
+                vx -= dot * nx;
+                vy -= dot * ny;
+            }
+            vx *= 0.8;
+            vy *= 0.8;
         }
-        metaballState.positions[idx] = x;
-        metaballState.positions[idx + 1] = y;
-        metaballState.velocities[idx] = vx;
-        metaballState.velocities[idx + 1] = vy;
+
+        // Store
+        positions[idx] = x;
+        positions[idx + 1] = y;
+        velocities[idx] = vx;
+        velocities[idx + 1] = vy;
     }
-    if (returningToOrigin && allClose) {
-        if (!returnTimeout) {
-            returnTimeout = setTimeout(() => {
-                velocityKick = initialVelocities.slice();
-                pendingVelocityKick = true;
-                returningToOrigin = false;
-                returnTimeout = null;
-            }, 200);
-        }
-    } else if (!allClose && returnTimeout) {
-        clearTimeout(returnTimeout);
-        returnTimeout = null;
-    }
-    // Apply velocity kick if pending
-    if (pendingVelocityKick) {
-        for (let i = 0; i < maxMetaballs; i++) {
-            const angle = Math.random() * 2 * Math.PI;
-            const mag = 0.01;
-            metaballState.velocities[i*2] = Math.cos(angle) * mag;
-            metaballState.velocities[i*2+1] = Math.sin(angle) * mag;
-        }
-        pendingVelocityKick = false;
-    }
-    // Apply speed cap (hard or soft)
-    for (let i = 0; i < maxMetaballs; i++) {
+
+    // ── Speed governor (scaled to boundary) ────────────────────────────────
+    const maxSpeed = BASE_MAX_SPEED * s;
+    for (let i = 0; i < NUM_BALLS; i++) {
         const idx = i * 2;
-        let vx = metaballState.velocities[idx];
-        let vy = metaballState.velocities[idx + 1];
+        const vx = velocities[idx];
+        const vy = velocities[idx + 1];
         const speed = Math.sqrt(vx * vx + vy * vy);
         if (speed > maxSpeed) {
-            if (softCapEnabled) {
-                // Soft cap: damp velocity
-                vx *= 0.9;
-                vy *= 0.9;
-            } else {
-                // Hard cap: clamp to maxSpeed
-                const scale = maxSpeed / speed;
-                vx *= scale;
-                vy *= scale;
-            }
-            metaballState.velocities[idx] = vx;
-            metaballState.velocities[idx + 1] = vy;
+            velocities[idx] *= 0.92;
+            velocities[idx + 1] *= 0.92;
         }
     }
 }
 
+// ─── Public getters ─────────────────────────────────────────────────────────
 export function getMetaballPositions() {
-    return metaballState.positions;
+    return positions;
 }
 
 export function getMetaballVelocities() {
-    return metaballState.velocities;
+    return velocities;
 }
-
-// Circular boundary parameters
-export const boundaryCenter = [0.5, 0.5];
-let boundaryRadius = 0.45;
-export function getBoundaryRadius() { return boundaryRadius; }
-export function setBoundaryRadius(r) { boundaryRadius = r; }
-
-export const METABALL_RADIUS = 0.1;

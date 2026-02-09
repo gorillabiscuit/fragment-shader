@@ -1,14 +1,16 @@
 import vertexShaderSource from './shaders/vertex.glsl.js';
 import fragmentShaderSource from './shaders/fragment.glsl.js';
-import { METABALL_RADIUS } from './physics.js';
-import { getControlValues } from './ui-controls.js';
 
-export function createShader(gl, type, source) {
+let fieldStrength = 0.003125;
+export function setFieldStrength(v) { fieldStrength = v; }
+export function getFieldStrength() { return fieldStrength; }
+
+function createShader(gl, type, source) {
     const shader = gl.createShader(type);
     gl.shaderSource(shader, source);
     gl.compileShader(shader);
     if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
-        console.error('An error occurred compiling the shaders: ' + gl.getShaderInfoLog(shader));
+        console.error('Shader compile error: ' + gl.getShaderInfoLog(shader));
         gl.deleteShader(shader);
         return null;
     }
@@ -16,13 +18,18 @@ export function createShader(gl, type, source) {
 }
 
 export function initWebGL(canvas) {
-    const gl = canvas.getContext('webgl', { alpha: true });
+    const gl = canvas.getContext('webgl', {
+        alpha: true,
+        premultipliedAlpha: false,
+    });
     if (!gl) {
-        alert('Unable to initialize WebGL. Your browser may not support it.');
-        return null;
+        console.error('Unable to initialize WebGL.');
+        return {};
     }
-    gl.clearColor(0.0, 0.0, 0.0, 0.0);
+
     gl.viewport(0, 0, canvas.width, canvas.height);
+
+    // Enable alpha blending
     gl.enable(gl.BLEND);
     gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
 
@@ -33,17 +40,18 @@ export function initWebGL(canvas) {
     gl.attachShader(shaderProgram, fragmentShader);
     gl.linkProgram(shaderProgram);
     if (!gl.getProgramParameter(shaderProgram, gl.LINK_STATUS)) {
-        alert('Unable to initialize the shader program: ' + gl.getProgramInfoLog(shaderProgram));
-        return null;
+        console.error('Shader link error: ' + gl.getProgramInfoLog(shaderProgram));
+        return {};
     }
     gl.useProgram(shaderProgram);
+
     return { gl, shaderProgram };
 }
 
 export function setupBuffers(gl, shaderProgram) {
     const vertices = new Float32Array([
-        -1.0, -1.0, 1.0, -1.0, -1.0, 1.0,
-        -1.0, 1.0, 1.0, -1.0, 1.0, 1.0,
+        -1.0, -1.0,  1.0, -1.0, -1.0,  1.0,
+        -1.0,  1.0,  1.0, -1.0,  1.0,  1.0,
     ]);
     const positionBuffer = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
@@ -51,82 +59,31 @@ export function setupBuffers(gl, shaderProgram) {
     const positionLocation = gl.getAttribLocation(shaderProgram, 'position');
     gl.enableVertexAttribArray(positionLocation);
     gl.vertexAttribPointer(positionLocation, 2, gl.FLOAT, false, 0, 0);
-    // Set up static uniforms
+
+    // Static uniforms
     gl.uniform1f(gl.getUniformLocation(shaderProgram, 'canvasWidth'), gl.canvas.width);
     gl.uniform1f(gl.getUniformLocation(shaderProgram, 'canvasHeight'), gl.canvas.height);
-    gl.uniform3fv(gl.getUniformLocation(shaderProgram, 'baseColor'), [1, 1, 1]);
-    gl.uniform3fv(gl.getUniformLocation(shaderProgram, 'secondaryColor'), [0.53, 0.8, 1]);
-    gl.uniform3fv(gl.getUniformLocation(shaderProgram, 'backgroundColor'), [0.125, 0.49, 0.792]);
-    gl.uniform1f(gl.getUniformLocation(shaderProgram, 'velocityColorEnabled'), 0.0);
-    gl.uniform1f(gl.getUniformLocation(shaderProgram, 'velocityColorIntensity'), 1.0);
-    gl.uniform1f(gl.getUniformLocation(shaderProgram, 'distanceColorEnabled'), 0.0);
-    gl.uniform1f(gl.getUniformLocation(shaderProgram, 'distanceColorIntensity'), 1.0);
+}
+
+/** Update viewport and canvas-size uniforms after a resize */
+export function resizeGL(gl, shaderProgram, canvas) {
+    gl.viewport(0, 0, canvas.width, canvas.height);
+    gl.uniform1f(gl.getUniformLocation(shaderProgram, 'canvasWidth'), canvas.width);
+    gl.uniform1f(gl.getUniformLocation(shaderProgram, 'canvasHeight'), canvas.height);
 }
 
 export function drawMetaballs(gl, shaderProgram, positions) {
-    const controls = getControlValues();
-    const fieldStrength = parseFloat(controls['metaball-visual-size-slider'] || 0.003125);
+    const fs = fieldStrength;
     const radiiLoc = gl.getUniformLocation(shaderProgram, 'metaballRadii');
-    if (radiiLoc) gl.uniform1fv(radiiLoc, [fieldStrength, fieldStrength, fieldStrength]);
-    for (let i = 0; i < 3; i++) {
-        const posLocation = gl.getUniformLocation(shaderProgram, `metaballPositions[${i}]`);
-        gl.uniform2f(posLocation, positions[i*2], positions[i*2+1]);
+    if (radiiLoc) {
+        gl.uniform1fv(radiiLoc, [fs, fs, fs]);
     }
+
+    for (let i = 0; i < 3; i++) {
+        const posLoc = gl.getUniformLocation(shaderProgram, `metaballPositions[${i}]`);
+        gl.uniform2f(posLoc, positions[i * 2], positions[i * 2 + 1]);
+    }
+
     gl.clear(gl.COLOR_BUFFER_BIT);
     gl.drawArrays(gl.TRIANGLES, 0, 6);
-}
-
-// Minimal vertex and fragment shaders for red line overlay
-const circleVertexShaderSource = `
-attribute vec2 position;
-void main() {
-    gl_Position = vec4(position, 0.0, 1.0);
-}`;
-const circleFragmentShaderSource = `
-precision mediump float;
-void main() {
-    gl_FragColor = vec4(1.0, 0.0, 0.0, 1.0); // Red
-}`;
-
-function createCircleProgram(gl) {
-    const vShader = createShader(gl, gl.VERTEX_SHADER, circleVertexShaderSource);
-    const fShader = createShader(gl, gl.FRAGMENT_SHADER, circleFragmentShaderSource);
-    const program = gl.createProgram();
-    gl.attachShader(program, vShader);
-    gl.attachShader(program, fShader);
-    gl.linkProgram(program);
-    return program;
-}
-
-export function drawCircularBoundary(gl, center, radius) {
-    const numSegments = 128;
-    const verts = [];
-    // Convert [0,1] center/radius to NDC, preserving aspect ratio
-    const w = gl.canvas.width;
-    const h = gl.canvas.height;
-    const aspect = w / h;
-    const cx = (center[0] * 2 - 1) * (aspect >= 1 ? 1 / aspect : 1);
-    const cy = (center[1] * 2 - 1) * (aspect <= 1 ? aspect : 1);
-    const rx = radius * 2 * (aspect >= 1 ? 1 / aspect : 1);
-    const ry = radius * 2 * (aspect <= 1 ? aspect : 1);
-    for (let i = 0; i <= numSegments; i++) {
-        const theta = (i / numSegments) * 2 * Math.PI;
-        verts.push(cx + Math.cos(theta) * rx, cy + Math.sin(theta) * ry);
-    }
-    const buffer = gl.createBuffer();
-    gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
-    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(verts), gl.STREAM_DRAW);
-    // Save current program and attrib
-    const prevProgram = gl.getParameter(gl.CURRENT_PROGRAM);
-    const circleProgram = createCircleProgram(gl);
-    gl.useProgram(circleProgram);
-    const posLoc = gl.getAttribLocation(circleProgram, 'position');
-    gl.enableVertexAttribArray(posLoc);
-    gl.vertexAttribPointer(posLoc, 2, gl.FLOAT, false, 0, 0);
-    gl.lineWidth(2);
-    gl.drawArrays(gl.LINE_STRIP, 0, numSegments + 1);
-    // Restore previous program
-    gl.useProgram(prevProgram);
-    gl.deleteBuffer(buffer);
-    gl.deleteProgram(circleProgram);
 }
