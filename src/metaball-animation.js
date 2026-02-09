@@ -21,7 +21,7 @@
 
 import { initWebGL, setupBuffers, resizeGL, setFieldStrength } from './webgl-setup.js';
 import { startAnimation } from './animation.js';
-import { setBoundaryRadius, setAspectRatio } from './physics.js';
+import { setBoundaryRadius, setAspectRatio, setSpeedMultiplier } from './physics.js';
 
 /**
  * Creates a metaball animation on the given canvas.
@@ -36,8 +36,9 @@ import { setBoundaryRadius, setAspectRatio } from './physics.js';
  */
 export function createMetaballAnimation(canvas, config = {}) {
     const {
-        ballSize = 0.003125,
-        boundaryRadius = 0.44,
+        ballSize = 0.0018,
+        boundaryRadius = 0.37,
+        speed = 0.65,
         ballColor = [1.0, 1.0, 1.0],
         showBoundary = false,
     } = config;
@@ -45,6 +46,7 @@ export function createMetaballAnimation(canvas, config = {}) {
     // ── Apply initial config ──────────────────────────────────────────────────
     setFieldStrength(ballSize);
     setBoundaryRadius(boundaryRadius);
+    setSpeedMultiplier(speed);
 
     // ── Size canvas to its CSS layout dimensions ──────────────────────────────
     const dpr = window.devicePixelRatio || 1;
@@ -94,6 +96,11 @@ export function createMetaballAnimation(canvas, config = {}) {
         /** Update outer boundary radius. */
         setBoundaryRadius(v) {
             setBoundaryRadius(v);
+        },
+
+        /** Update overall speed multiplier (default 1.0). */
+        setSpeed(v) {
+            setSpeedMultiplier(v);
         },
     };
 }

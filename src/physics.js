@@ -31,20 +31,23 @@ let velocities = [];  // flat [vx0,vy0, ...]
 
 // ─── Force strengths (current, interpolated) ────────────────────────────────
 let forces = {
-    gravity:        0.0003,
-    vorticity:      0.0,
-    turbulence:     0.0005,
-    surfaceTension: 0.0,
-    repulsionBall:  -1,
-    repulsionStr:   0.0,
+    gravity:            0.0003,
+    vorticity:          0.0,
+    turbulence:         0.0001,
+    surfaceTension:     0.0,
+    radialOscillation:  0.0,
+    repulsionBall:      -1,
+    repulsionStr:       0.0,
 };
 
 // Target values we lerp toward
 let targets = { ...forces };
 
 // ─── Speed governor ─────────────────────────────────────────────────────────
-const BASE_MAX_SPEED = 0.012;        // scaled by boundary
+const BASE_MAX_SPEED = 0.0096;       // scaled by boundary
 const BASE_GLOBAL_DAMPING = 0.995;   // tightens with smaller boundary
+let speedMultiplier = 1.0;
+export function setSpeedMultiplier(v) { speedMultiplier = v; }
 
 // ─── Clump / spread detection ───────────────────────────────────────────────
 let clumpTimer = 0;
@@ -55,54 +58,62 @@ const CLUMP_PATIENCE = 5.0;
 const SPREAD_PATIENCE = 6.0;
 
 // ─── Phase / mood system ────────────────────────────────────────────────────
+// Vorticity is now comparable to gravity so balls actually orbit.
+// Turbulence uses smooth noise (not random) so paths are clean.
 const MOODS = [
     {
         name: 'gentleOrbit',
         gravity: 0.0003,
-        vorticity: 0.00004,
-        turbulence: 0.0003,
-        surfaceTension: 0.0008,
+        vorticity: 0.00035,          // ≈gravity → stable orbits
+        turbulence: 0.00008,
+        surfaceTension: 0.0006,
+        radialOscillation: 0.0002,
         repulsion: false,
     },
     {
-        name: 'softAttract',
-        gravity: 0.0006,
-        vorticity: 0.0,
-        turbulence: 0.0002,
-        surfaceTension: 0.001,
+        name: 'tightSwirl',
+        gravity: 0.0005,
+        vorticity: 0.0004,           // just under gravity → slow inward spiral
+        turbulence: 0.00005,
+        surfaceTension: 0.0008,
+        radialOscillation: 0.00015,
         repulsion: false,
     },
     {
         name: 'driftApart',
-        gravity: 0.0001,
-        vorticity: 0.00002,
-        turbulence: 0.0006,
+        gravity: 0.00015,
+        vorticity: 0.0002,           // > gravity → spirals outward gently
+        turbulence: 0.0001,
         surfaceTension: 0.0,
+        radialOscillation: 0.0001,
         repulsion: true,
         repulsionStr: 0.003,
     },
     {
-        name: 'turbulentSwirl',
+        name: 'wideSwirl',
         gravity: 0.0002,
-        vorticity: 0.00006,
-        turbulence: 0.001,
-        surfaceTension: 0.0005,
+        vorticity: 0.0005,           // strong swirl, balls sweep wide
+        turbulence: 0.00008,
+        surfaceTension: 0.0004,
+        radialOscillation: 0.00025,
         repulsion: false,
     },
     {
         name: 'drainCircle',
-        gravity: 0.00015,
-        vorticity: 0.00008,
-        turbulence: 0.0002,
-        surfaceTension: 0.0006,
+        gravity: 0.0004,
+        vorticity: 0.0006,           // fastest swirl, drain-like
+        turbulence: 0.00004,
+        surfaceTension: 0.0005,
+        radialOscillation: 0.0002,
         repulsion: false,
     },
     {
-        name: 'gentlePulse',
-        gravity: 0.0005,
-        vorticity: 0.00001,
-        turbulence: 0.0004,
-        surfaceTension: 0.0012,
+        name: 'breathe',
+        gravity: 0.0003,
+        vorticity: 0.00015,          // gentle background swirl
+        turbulence: 0.00005,
+        surfaceTension: 0.001,
+        radialOscillation: 0.0004,   // strong in-out pulsing
         repulsion: false,
     },
 ];
@@ -112,7 +123,7 @@ let moodTimeRemaining = 0;
 let lastFrameTime = 0;
 
 // ─── Lerp rate ──────────────────────────────────────────────────────────────
-const LERP_SPEED = 0.4;
+const LERP_SPEED = 0.35;
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 function lerp(a, b, t) {
@@ -143,6 +154,17 @@ function avgInterBallDistance() {
     return total / count;
 }
 
+/**
+ * Smooth time-based noise — returns a value in roughly [-1, 1].
+ * Layered sine waves at incommensurate frequencies for organic feel
+ * without the jitter of Math.random().
+ */
+function smoothNoise(t, seed) {
+    return Math.sin(t * 0.7 + seed) * 0.5
+         + Math.sin(t * 1.3 + seed * 2.1) * 0.3
+         + Math.sin(t * 2.1 + seed * 0.7) * 0.2;
+}
+
 // ─── Mood selection ─────────────────────────────────────────────────────────
 function pickNextMood() {
     let next;
@@ -159,6 +181,7 @@ function applyMoodTargets(mood) {
     targets.vorticity = mood.vorticity;
     targets.turbulence = mood.turbulence;
     targets.surfaceTension = mood.surfaceTension;
+    targets.radialOscillation = mood.radialOscillation || 0;
 
     if (mood.repulsion) {
         targets.repulsionBall = Math.floor(Math.random() * NUM_BALLS);
@@ -181,6 +204,7 @@ export function initializeMetaballs() {
             Math.cos(angle) * safeRadius + 0.5,
             Math.sin(angle) * safeRadius + 0.5
         );
+        // Initial velocity: tangential (already orbiting)
         velocities.push(
             Math.cos(angle + Math.PI / 2) * 0.003,
             Math.sin(angle + Math.PI / 2) * 0.003
@@ -196,6 +220,9 @@ export function updatePhysics() {
     const dt = Math.min((now - lastFrameTime) / 1000, 0.05);
     lastFrameTime = now;
 
+    // Time in seconds for smooth noise
+    const tSec = now * 0.001;
+
     // ── Mood timer ──────────────────────────────────────────────────────────
     moodTimeRemaining -= dt;
     if (moodTimeRemaining <= 0) {
@@ -208,6 +235,7 @@ export function updatePhysics() {
     forces.vorticity = lerp(forces.vorticity, targets.vorticity, lerpT);
     forces.turbulence = lerp(forces.turbulence, targets.turbulence, lerpT);
     forces.surfaceTension = lerp(forces.surfaceTension, targets.surfaceTension, lerpT);
+    forces.radialOscillation = lerp(forces.radialOscillation, targets.radialOscillation, lerpT);
     forces.repulsionStr = lerp(forces.repulsionStr, targets.repulsionStr, lerpT);
     forces.repulsionBall = targets.repulsionBall;
 
@@ -223,7 +251,7 @@ export function updatePhysics() {
         if (clumpTimer > CLUMP_PATIENCE) {
             targets.repulsionBall = Math.floor(Math.random() * NUM_BALLS);
             targets.repulsionStr = 0.004 * s;
-            targets.vorticity = 0.00006;
+            targets.vorticity = 0.0003;       // swirl them apart geometrically
             targets.gravity = 0.0001;
             moodTimeRemaining = randomRange(8, 14);
             clumpTimer = 0;
@@ -252,29 +280,43 @@ export function updatePhysics() {
         let vx = velocities[idx];
         let vy = velocities[idx + 1];
 
-        // Turbulence
-        vx += (Math.random() - 0.5) * forces.turbulence;
-        vy += (Math.random() - 0.5) * forces.turbulence;
+        // Per-ball phase offset (~120° apart)
+        const seed = i * 2.094;
+        const sm = speedMultiplier;
 
-        // Gravity toward center
-        if (forces.gravity > 0) {
-            const toCx = 0.5 - x;
-            const toCy = 0.5 - y;
-            const distC = Math.sqrt(toCx * toCx + toCy * toCy);
-            if (distC > 0.001) {
-                vx += (toCx / distC) * forces.gravity;
-                vy += (toCy / distC) * forces.gravity;
+        // Smooth perturbation (replaces random turbulence)
+        vx += smoothNoise(tSec * 0.8, seed) * forces.turbulence * sm;
+        vy += smoothNoise(tSec * 0.8, seed + 50.0) * forces.turbulence * sm;
+
+        // Direction to center (shared by gravity, vorticity, radial oscillation)
+        const toCx = 0.5 - x;
+        const toCy = 0.5 - y;
+        const distC = Math.sqrt(toCx * toCx + toCy * toCy);
+
+        if (distC > 0.001) {
+            const nx = toCx / distC;    // unit vector toward center
+            const ny = toCy / distC;
+            const tx = -ny;             // tangent (perpendicular, CCW)
+            const ty = nx;
+
+            // Gravity toward center
+            if (forces.gravity > 0) {
+                vx += nx * forces.gravity * sm;
+                vy += ny * forces.gravity * sm;
             }
-        }
 
-        // Vorticity
-        if (forces.vorticity > 0) {
-            const toCx = 0.5 - x;
-            const toCy = 0.5 - y;
-            const distC = Math.sqrt(toCx * toCx + toCy * toCy);
-            if (distC > 0.001) {
-                vx += (-toCy / distC) * forces.vorticity;
-                vy += (toCx / distC) * forces.vorticity;
+            // Vorticity — tangential force for circular orbits
+            if (forces.vorticity > 0) {
+                vx += tx * forces.vorticity * sm;
+                vy += ty * forces.vorticity * sm;
+            }
+
+            // Radial oscillation — sinusoidal in-and-out breathing
+            if (forces.radialOscillation > 0) {
+                const radialPhase = tSec * 0.4 + seed;
+                const radialPush = Math.sin(radialPhase) * forces.radialOscillation * sm;
+                vx += nx * radialPush;
+                vy += ny * radialPush;
             }
         }
 
@@ -287,7 +329,7 @@ export function updatePhysics() {
                 const sdy = y - positions[j * 2 + 1];
                 const dist = Math.sqrt(sdx * sdx + sdy * sdy);
                 if (dist > 0.001) {
-                    const force = forces.surfaceTension * (dist - optimalDist);
+                    const force = forces.surfaceTension * (dist - optimalDist) * sm;
                     vx -= (sdx / dist) * force;
                     vy -= (sdy / dist) * force;
                 }
@@ -303,7 +345,7 @@ export function updatePhysics() {
                 const rdy = positions[j * 2 + 1] - y;
                 const dist = Math.sqrt(rdx * rdx + rdy * rdy);
                 if (dist > 0.001 && dist < repulsionRange) {
-                    const pushFactor = forces.repulsionStr * s * (1.0 - dist / repulsionRange);
+                    const pushFactor = forces.repulsionStr * s * (1.0 - dist / repulsionRange) * sm;
                     vx -= (rdx / dist) * pushFactor * 0.5;
                     vy -= (rdy / dist) * pushFactor * 0.5;
                 }
@@ -315,7 +357,7 @@ export function updatePhysics() {
             const rdy = y - positions[ri * 2 + 1];
             const dist = Math.sqrt(rdx * rdx + rdy * rdy);
             if (dist > 0.001 && dist < repulsionRange) {
-                const pushFactor = forces.repulsionStr * s * (1.0 - dist / repulsionRange);
+                const pushFactor = forces.repulsionStr * s * (1.0 - dist / repulsionRange) * sm;
                 vx += (rdx / dist) * pushFactor;
                 vy += (rdy / dist) * pushFactor;
             }
@@ -347,12 +389,12 @@ export function updatePhysics() {
             const scale = outerRadius / corrDist;
             x = 0.5 + dx * scale;
             y = 0.5 + dy * scale;
-            const nx = dx / rawDist;
-            const ny = dy / rawDist;
-            const dot = vx * nx + vy * ny;
+            const bnx = dx / rawDist;
+            const bny = dy / rawDist;
+            const dot = vx * bnx + vy * bny;
             if (dot > 0) {
-                vx -= dot * nx;
-                vy -= dot * ny;
+                vx -= dot * bnx;
+                vy -= dot * bny;
             }
             vx *= 0.8;
             vy *= 0.8;
@@ -366,7 +408,7 @@ export function updatePhysics() {
     }
 
     // ── Speed governor (scaled to boundary) ────────────────────────────────
-    const maxSpeed = BASE_MAX_SPEED * s;
+    const maxSpeed = BASE_MAX_SPEED * s * speedMultiplier;
     for (let i = 0; i < NUM_BALLS; i++) {
         const idx = i * 2;
         const vx = velocities[idx];

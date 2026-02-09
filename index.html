@@ -41,9 +41,18 @@
         }
         #controls label {
             display: flex;
-            justify-content: space-between;
             align-items: center;
-            gap: 12px;
+            gap: 10px;
+        }
+        #controls label span.name {
+            min-width: 60px;
+        }
+        #controls label span.value {
+            min-width: 44px;
+            text-align: right;
+            font-variant-numeric: tabular-nums;
+            opacity: 0.7;
+            font-size: 11px;
         }
         #controls input[type="range"] {
             flex: 1;
@@ -69,12 +78,19 @@
 
     <div id="controls">
         <label>
-            <span>Ball Size</span>
-            <input type="range" id="ball-size" min="0.0001" max="0.012" step="0.0001" value="0.003125">
+            <span class="name">Ball Size</span>
+            <input type="range" id="ball-size" min="0.0001" max="0.012" step="0.0001" value="0.0018">
+            <span class="value" id="ball-size-val">0.0018</span>
         </label>
         <label>
-            <span>Boundary</span>
-            <input type="range" id="boundary-radius" min="0.20" max="0.48" step="0.005" value="0.44">
+            <span class="name">Boundary</span>
+            <input type="range" id="boundary-radius" min="0.20" max="0.48" step="0.005" value="0.37">
+            <span class="value" id="boundary-val">0.370</span>
+        </label>
+        <label>
+            <span class="name">Speed</span>
+            <input type="range" id="speed" min="0.1" max="2.0" step="0.05" value="0.65">
+            <span class="value" id="speed-val">0.65</span>
         </label>
     </div>
 
