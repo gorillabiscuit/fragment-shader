@@ -36,9 +36,9 @@ import { setBoundaryRadius, setAspectRatio, setSpeedMultiplier } from './physics
  */
 export function createMetaballAnimation(canvas, config = {}) {
     const {
-        ballSize = 0.0018,
-        boundaryRadius = 0.37,
-        speed = 0.65,
+        ballSize = 0.0027,
+        boundaryRadius = 0.40,
+        speed = 0.40,
         ballColor = [1.0, 1.0, 1.0],
         showBoundary = false,
     } = config;

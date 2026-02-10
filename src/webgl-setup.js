@@ -1,7 +1,7 @@
 import vertexShaderSource from './shaders/vertex.glsl.js';
 import fragmentShaderSource from './shaders/fragment.glsl.js';
 
-let fieldStrength = 0.0018;
+let fieldStrength = 0.0027;
 export function setFieldStrength(v) { fieldStrength = v; }
 export function getFieldStrength() { return fieldStrength; }
 
