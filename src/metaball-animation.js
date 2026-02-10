@@ -5,8 +5,8 @@
  *   import { createMetaballAnimation } from './metaball-animation.js';
  *
  *   const anim = createMetaballAnimation(canvasElement, {
- *       ballSize: 0.003125,
- *       boundaryRadius: 0.44,
+ *       ballSize: 0.0027,
+ *       boundaryRadius: 0.40,
  *       ballColor: [1, 1, 1],
  *       showBoundary: false,
  *   });
@@ -28,8 +28,9 @@ import { setBoundaryRadius, setAspectRatio, setSpeedMultiplier } from './physics
  *
  * @param {HTMLCanvasElement} canvas — must have CSS layout dimensions (width/height via CSS or parent).
  * @param {Object}  [config]
- * @param {number}  [config.ballSize=0.003125]     — visual radius of each metaball
- * @param {number}  [config.boundaryRadius=0.44]   — outer boundary radius
+ * @param {number}  [config.ballSize=0.0027]        — visual radius of each metaball
+ * @param {number}  [config.boundaryRadius=0.40]   — outer boundary radius
+ * @param {number}  [config.speed=1.0]             — speed multiplier (1.0 = designed pace)
  * @param {number[]} [config.ballColor=[1,1,1]]    — RGB 0–1
  * @param {boolean} [config.showBoundary=false]     — render boundary circles (dev aid)
  * @returns {{ destroy: Function, resize: Function, setBallSize: Function, setBoundaryRadius: Function } | null}
@@ -38,7 +39,7 @@ export function createMetaballAnimation(canvas, config = {}) {
     const {
         ballSize = 0.0027,
         boundaryRadius = 0.40,
-        speed = 0.40,
+        speed = 1.0,
         ballColor = [1.0, 1.0, 1.0],
         showBoundary = false,
     } = config;

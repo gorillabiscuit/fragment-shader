@@ -7,7 +7,7 @@ export interface MetaballConfig {
     ballColor?: [number, number, number];
     /** Render boundary circles (default false) */
     showBoundary?: boolean;
-    /** Overall animation speed multiplier (default 0.40) */
+    /** Overall animation speed multiplier (default 1.0 = designed pace) */
     speed?: number;
 }
 

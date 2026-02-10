@@ -6,7 +6,7 @@ window.onload = () => {
     const anim = createMetaballAnimation(canvas, {
         ballSize: 0.0027,
         boundaryRadius: 0.40,
-        speed: 0.40,
+        speed: 1.0,
         ballColor: [1.0, 1.0, 1.0],
         showBoundary: true,        // visible in dev mode
     });

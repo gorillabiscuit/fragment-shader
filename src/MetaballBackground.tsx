@@ -38,7 +38,7 @@ interface MetaballBackgroundProps {
     boundaryRadius?: number;
     /** RGB colour for the balls, each 0–1 (default white [1,1,1]) */
     ballColor?: [number, number, number];
-    /** Overall animation speed multiplier (default 0.40) */
+    /** Overall animation speed multiplier (default 1.0 = designed pace) */
     speedMultiplier?: number;
     /** Show the inner/outer boundary circles (default true) */
     showBoundary?: boolean;
@@ -52,7 +52,7 @@ export function MetaballBackground({
     ballSize = 0.0027,
     boundaryRadius = 0.400,
     ballColor = [1, 1, 1],
-    speedMultiplier = 0.40,
+    speedMultiplier = 1.0,
     showBoundary = true,
     className,
     style,
