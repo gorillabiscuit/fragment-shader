@@ -5,10 +5,10 @@ export interface MetaballConfig {
     boundaryRadius?: number;
     /** RGB colour for the balls, each 0–1 (default [1,1,1] = white) */
     ballColor?: [number, number, number];
-    /** Render boundary circles (default true) */
+    /** Render boundary circles (default false) */
     showBoundary?: boolean;
     /** Overall animation speed multiplier (default 0.40) */
-    speedMultiplier?: number;
+    speed?: number;
 }
 
 export interface MetaballController {
@@ -21,7 +21,7 @@ export interface MetaballController {
     /** Update outer boundary radius. */
     setBoundaryRadius(v: number): void;
     /** Update overall speed multiplier. */
-    setSpeedMultiplier(v: number): void;
+    setSpeed(v: number): void;
 }
 
 /**

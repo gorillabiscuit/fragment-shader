@@ -69,7 +69,7 @@ export function MetaballBackground({
             boundaryRadius,
             ballColor,
             showBoundary,
-            speedMultiplier,
+            speed: speedMultiplier,
         });
 
         return () => {
@@ -82,7 +82,7 @@ export function MetaballBackground({
     // Live-update when breakpoint-driven props change
     useEffect(() => { animRef.current?.setBallSize(ballSize); }, [ballSize]);
     useEffect(() => { animRef.current?.setBoundaryRadius(boundaryRadius); }, [boundaryRadius]);
-    useEffect(() => { animRef.current?.setSpeedMultiplier(speedMultiplier); }, [speedMultiplier]);
+    useEffect(() => { animRef.current?.setSpeed(speedMultiplier); }, [speedMultiplier]);
 
     return (
         <canvas
