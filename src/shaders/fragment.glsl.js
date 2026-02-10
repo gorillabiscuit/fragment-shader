@@ -39,8 +39,8 @@ void main() {
         vec2 corrCenter = vec2(0.5 * aspect, 0.5);
         float distFromCenter = length(corrPoint - corrCenter);
 
-        float innerRing = (1.0 - smoothstep(0.0, 0.003, abs(distFromCenter - innerRadius))) * 0.15;
-        float outerRing = (1.0 - smoothstep(0.0, 0.003, abs(distFromCenter - outerRadius))) * 0.25;
+        float innerRing = (1.0 - smoothstep(0.0, 0.006, abs(distFromCenter - innerRadius))) * 0.35;
+        float outerRing = (1.0 - smoothstep(0.0, 0.006, abs(distFromCenter - outerRadius))) * 0.50;
         alpha = max(alpha, max(innerRing, outerRing));
     }
 

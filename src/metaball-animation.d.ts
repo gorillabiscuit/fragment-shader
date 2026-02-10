@@ -1,12 +1,14 @@
 export interface MetaballConfig {
-    /** Visual radius of each metaball (default 0.003125, range ~0.0001–0.012) */
+    /** Visual radius of each metaball (default 0.0027, range ~0.0001–0.012) */
     ballSize?: number;
-    /** Outer boundary radius (default 0.44, range ~0.20–0.48) */
+    /** Outer boundary radius (default 0.400, range ~0.20–0.48) */
     boundaryRadius?: number;
     /** RGB colour for the balls, each 0–1 (default [1,1,1] = white) */
     ballColor?: [number, number, number];
-    /** Render boundary circles — dev aid only (default false) */
+    /** Render boundary circles (default true) */
     showBoundary?: boolean;
+    /** Overall animation speed multiplier (default 0.40) */
+    speedMultiplier?: number;
 }
 
 export interface MetaballController {
@@ -18,6 +20,8 @@ export interface MetaballController {
     setBallSize(v: number): void;
     /** Update outer boundary radius. */
     setBoundaryRadius(v: number): void;
+    /** Update overall speed multiplier. */
+    setSpeedMultiplier(v: number): void;
 }
 
 /**

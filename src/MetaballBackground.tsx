@@ -32,12 +32,16 @@ import { useRef, useEffect } from 'react';
 import { createMetaballAnimation } from './metaball-animation.js';
 
 interface MetaballBackgroundProps {
-    /** Visual radius of each metaball (default 0.003125) */
+    /** Visual radius of each metaball (default 0.0027) */
     ballSize?: number;
-    /** Outer boundary radius (default 0.44) */
+    /** Outer boundary radius (default 0.400) */
     boundaryRadius?: number;
     /** RGB colour for the balls, each 0–1 (default white [1,1,1]) */
     ballColor?: [number, number, number];
+    /** Overall animation speed multiplier (default 0.40) */
+    speedMultiplier?: number;
+    /** Show the inner/outer boundary circles (default true) */
+    showBoundary?: boolean;
     /** Extra CSS class names (e.g. Tailwind positioning) */
     className?: string;
     /** Inline styles */
@@ -45,9 +49,11 @@ interface MetaballBackgroundProps {
 }
 
 export function MetaballBackground({
-    ballSize = 0.003125,
-    boundaryRadius = 0.44,
+    ballSize = 0.0027,
+    boundaryRadius = 0.400,
     ballColor = [1, 1, 1],
+    speedMultiplier = 0.40,
+    showBoundary = true,
     className,
     style,
 }: MetaballBackgroundProps) {
@@ -62,7 +68,8 @@ export function MetaballBackground({
             ballSize,
             boundaryRadius,
             ballColor,
-            showBoundary: false,
+            showBoundary,
+            speedMultiplier,
         });
 
         return () => {
@@ -75,6 +82,7 @@ export function MetaballBackground({
     // Live-update when breakpoint-driven props change
     useEffect(() => { animRef.current?.setBallSize(ballSize); }, [ballSize]);
     useEffect(() => { animRef.current?.setBoundaryRadius(boundaryRadius); }, [boundaryRadius]);
+    useEffect(() => { animRef.current?.setSpeedMultiplier(speedMultiplier); }, [speedMultiplier]);
 
     return (
         <canvas
