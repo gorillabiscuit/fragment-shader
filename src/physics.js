@@ -215,10 +215,15 @@ export function initializeMetaballs() {
 }
 
 // ─── Physics update (called every frame) ────────────────────────────────────
+// All forces and damping are normalized to 60fps via `f` (frame multiplier).
+// This ensures identical animation speed on 60Hz, 120Hz, 144Hz displays etc.
 export function updatePhysics() {
     const now = performance.now();
     const dt = Math.min((now - lastFrameTime) / 1000, 0.05);
     lastFrameTime = now;
+
+    // Frame multiplier: 1.0 at 60fps, 0.5 at 120fps, 2.0 at 30fps
+    const f = dt * 60;
 
     // Time in seconds for smooth noise
     const tSec = now * 0.001;
@@ -273,6 +278,8 @@ export function updatePhysics() {
     }
 
     // ── Apply forces to each ball ───────────────────────────────────────────
+    const sm = speedMultiplier;
+
     for (let i = 0; i < NUM_BALLS; i++) {
         const idx = i * 2;
         let x = positions[idx];
@@ -282,11 +289,10 @@ export function updatePhysics() {
 
         // Per-ball phase offset (~120° apart)
         const seed = i * 2.094;
-        const sm = speedMultiplier;
 
         // Smooth perturbation (replaces random turbulence)
-        vx += smoothNoise(tSec * 0.8, seed) * forces.turbulence * sm;
-        vy += smoothNoise(tSec * 0.8, seed + 50.0) * forces.turbulence * sm;
+        vx += smoothNoise(tSec * 0.8, seed) * forces.turbulence * sm * f;
+        vy += smoothNoise(tSec * 0.8, seed + 50.0) * forces.turbulence * sm * f;
 
         // Direction to center (shared by gravity, vorticity, radial oscillation)
         const toCx = 0.5 - x;
@@ -301,20 +307,20 @@ export function updatePhysics() {
 
             // Gravity toward center
             if (forces.gravity > 0) {
-                vx += nx * forces.gravity * sm;
-                vy += ny * forces.gravity * sm;
+                vx += nx * forces.gravity * sm * f;
+                vy += ny * forces.gravity * sm * f;
             }
 
             // Vorticity — tangential force for circular orbits
             if (forces.vorticity > 0) {
-                vx += tx * forces.vorticity * sm;
-                vy += ty * forces.vorticity * sm;
+                vx += tx * forces.vorticity * sm * f;
+                vy += ty * forces.vorticity * sm * f;
             }
 
             // Radial oscillation — sinusoidal in-and-out breathing
             if (forces.radialOscillation > 0) {
                 const radialPhase = tSec * 0.4 + seed;
-                const radialPush = Math.sin(radialPhase) * forces.radialOscillation * sm;
+                const radialPush = Math.sin(radialPhase) * forces.radialOscillation * sm * f;
                 vx += nx * radialPush;
                 vy += ny * radialPush;
             }
@@ -329,7 +335,7 @@ export function updatePhysics() {
                 const sdy = y - positions[j * 2 + 1];
                 const dist = Math.sqrt(sdx * sdx + sdy * sdy);
                 if (dist > 0.001) {
-                    const force = forces.surfaceTension * (dist - optimalDist) * sm;
+                    const force = forces.surfaceTension * (dist - optimalDist) * sm * f;
                     vx -= (sdx / dist) * force;
                     vy -= (sdy / dist) * force;
                 }
@@ -345,7 +351,7 @@ export function updatePhysics() {
                 const rdy = positions[j * 2 + 1] - y;
                 const dist = Math.sqrt(rdx * rdx + rdy * rdy);
                 if (dist > 0.001 && dist < repulsionRange) {
-                    const pushFactor = forces.repulsionStr * s * (1.0 - dist / repulsionRange) * sm;
+                    const pushFactor = forces.repulsionStr * s * (1.0 - dist / repulsionRange) * sm * f;
                     vx -= (rdx / dist) * pushFactor * 0.5;
                     vy -= (rdy / dist) * pushFactor * 0.5;
                 }
@@ -357,20 +363,20 @@ export function updatePhysics() {
             const rdy = y - positions[ri * 2 + 1];
             const dist = Math.sqrt(rdx * rdx + rdy * rdy);
             if (dist > 0.001 && dist < repulsionRange) {
-                const pushFactor = forces.repulsionStr * s * (1.0 - dist / repulsionRange) * sm;
+                const pushFactor = forces.repulsionStr * s * (1.0 - dist / repulsionRange) * sm * f;
                 vx += (rdx / dist) * pushFactor;
                 vy += (rdy / dist) * pushFactor;
             }
         }
 
-        // Global damping (tighter in smaller boundaries)
-        const damping = 1.0 - (1.0 - BASE_GLOBAL_DAMPING) / s;
-        vx *= damping;
-        vy *= damping;
+        // Global damping (frame-rate independent via pow)
+        const baseDamping = 1.0 - (1.0 - BASE_GLOBAL_DAMPING) / s;
+        vx *= Math.pow(baseDamping, f);
+        vy *= Math.pow(baseDamping, f);
 
-        // Integrate position
-        x += vx;
-        y += vy;
+        // Integrate position (scaled by frame multiplier)
+        x += vx * f;
+        y += vy * f;
 
         // ── Soft circular boundary (aspect-ratio-corrected) ─────────────────
         const dx = x - 0.5;
@@ -380,7 +386,7 @@ export function updatePhysics() {
 
         if (corrDist > innerRadius && rawDist > 0.001) {
             const t = Math.min((corrDist - innerRadius) / (outerRadius - innerRadius), 1.0);
-            const force = t * t * MAX_BOUNDARY_FORCE;
+            const force = t * t * MAX_BOUNDARY_FORCE * f;
             vx -= (dx / rawDist) * force;
             vy -= (dy / rawDist) * force;
         }
@@ -396,8 +402,8 @@ export function updatePhysics() {
                 vx -= dot * bnx;
                 vy -= dot * bny;
             }
-            vx *= 0.8;
-            vy *= 0.8;
+            vx *= Math.pow(0.8, f);
+            vy *= Math.pow(0.8, f);
         }
 
         // Store
@@ -415,8 +421,9 @@ export function updatePhysics() {
         const vy = velocities[idx + 1];
         const speed = Math.sqrt(vx * vx + vy * vy);
         if (speed > maxSpeed) {
-            velocities[idx] *= 0.92;
-            velocities[idx + 1] *= 0.92;
+            const brake = Math.pow(0.92, f);
+            velocities[idx] *= brake;
+            velocities[idx + 1] *= brake;
         }
     }
 }
