@@ -22,6 +22,23 @@ function boundaryScale() { return outerRadius / DEFAULT_OUTER; }
 let aspectRatio = 1;
 export function setAspectRatio(ar) { aspectRatio = ar; }
 
+// ─── Wandering attractor — Lissajous with irrational frequencies ────────────
+// The gravity/vorticity center drifts in a small never-repeating path.
+// Boundary checks still use the true center (0.5, 0.5).
+const WANDER_RADIUS = 0.04;
+function wanderingCenter(tSec) {
+    return {
+        x: 0.5 + Math.sin(tSec * 0.13) * WANDER_RADIUS
+                + Math.sin(tSec * 0.07) * WANDER_RADIUS * 0.5,
+        y: 0.5 + Math.sin(tSec * 0.09) * WANDER_RADIUS
+                + Math.cos(tSec * 0.11) * WANDER_RADIUS * 0.4,
+    };
+}
+
+// ─── Per-ball force sensitivity ─────────────────────────────────────────────
+// Each ball responds to forces at a slightly different rate.
+const BALL_SENSITIVITY = [1.0, 0.85, 1.15];
+
 // ─── State ───────────────────────────────────────────────────────────────────
 let positions = [];   // flat [x0,y0, x1,y1, x2,y2]
 let velocities = [];  // flat [vx0,vy0, ...]
@@ -82,7 +99,7 @@ const MOODS = [
     {
         name: 'driftApart',
         gravity: 0.00006,
-        vorticity: 0.00008,
+        vorticity: -0.00010,           // counter-rotate while separating
         turbulence: 0.00004,
         surfaceTension: 0.0,
         radialOscillation: 0.00004,
@@ -92,7 +109,7 @@ const MOODS = [
     {
         name: 'wideSwirl',
         gravity: 0.00008,
-        vorticity: 0.0002,
+        vorticity: -0.00016,           // wide counter-clockwise orbit
         turbulence: 0.000032,
         surfaceTension: 0.00016,
         radialOscillation: 0.0001,
@@ -110,11 +127,40 @@ const MOODS = [
     {
         name: 'breathe',
         gravity: 0.00012,
-        vorticity: 0.00006,
+        vorticity: 0.0,                // no rotation — pure radial breathing
         turbulence: 0.00002,
         surfaceTension: 0.0004,
-        radialOscillation: 0.00016,
+        radialOscillation: 0.00024,    // boosted for more visible breathing
         repulsion: false,
+    },
+    // ── New moods for variety ────────────────────────────────────────────────
+    {
+        name: 'gravityDrift',           // no rotation, balls drift inward under gravity
+        gravity: 0.00020,              // then bounce off each other via surface tension
+        vorticity: 0.0,
+        turbulence: 0.000028,
+        surfaceTension: 0.00032,
+        radialOscillation: 0.00006,
+        repulsion: false,
+    },
+    {
+        name: 'reverseOrbit',           // gentle counter-clockwise
+        gravity: 0.00012,
+        vorticity: -0.00014,
+        turbulence: 0.000024,
+        surfaceTension: 0.00020,
+        radialOscillation: 0.00008,
+        repulsion: false,
+    },
+    {
+        name: 'pulseRepulse',           // balls push out then get pulled back
+        gravity: 0.00006,              // weak gravity so they drift out
+        vorticity: 0.0,                // no rotation during the pulse
+        turbulence: 0.000020,
+        surfaceTension: 0.0,
+        radialOscillation: 0.00028,    // strong breathing drives in/out pulse
+        repulsion: true,
+        repulsionStr: 0.0008,          // light repulsion between balls
     },
 ];
 
@@ -275,6 +321,9 @@ export function updatePhysics() {
         spreadTimer = Math.max(0, spreadTimer - dt * 0.5);
     }
 
+    // ── Wandering gravity center for this frame ────────────────────────────
+    const center = wanderingCenter(tSec);
+
     // ── Apply forces to each ball ───────────────────────────────────────────
     const sm = speedMultiplier;
 
@@ -285,16 +334,17 @@ export function updatePhysics() {
         let vx = velocities[idx];
         let vy = velocities[idx + 1];
 
-        // Per-ball phase offset (~120° apart)
+        // Per-ball phase offset (~120° apart) and sensitivity
         const seed = i * 2.094;
+        const sens = BALL_SENSITIVITY[i];
 
         // Smooth perturbation
-        vx += smoothNoise(tSec * 0.8, seed) * forces.turbulence * sm * f;
-        vy += smoothNoise(tSec * 0.8, seed + 50.0) * forces.turbulence * sm * f;
+        vx += smoothNoise(tSec * 0.8, seed) * forces.turbulence * sm * sens * f;
+        vy += smoothNoise(tSec * 0.8, seed + 50.0) * forces.turbulence * sm * sens * f;
 
-        // Direction to center
-        const toCx = 0.5 - x;
-        const toCy = 0.5 - y;
+        // Direction to wandering center (not the fixed 0.5, 0.5)
+        const toCx = center.x - x;
+        const toCy = center.y - y;
         const distC = Math.sqrt(toCx * toCx + toCy * toCy);
 
         if (distC > 0.001) {
@@ -303,22 +353,22 @@ export function updatePhysics() {
             const tx = -ny;
             const ty = nx;
 
-            // Gravity toward center
+            // Gravity toward wandering center
             if (forces.gravity > 0) {
-                vx += nx * forces.gravity * sm * f;
-                vy += ny * forces.gravity * sm * f;
+                vx += nx * forces.gravity * sm * sens * f;
+                vy += ny * forces.gravity * sm * sens * f;
             }
 
-            // Vorticity — tangential force for circular orbits
-            if (forces.vorticity > 0) {
-                vx += tx * forces.vorticity * sm * f;
-                vy += ty * forces.vorticity * sm * f;
+            // Vorticity — tangential force (signed: positive = CW, negative = CCW)
+            if (forces.vorticity !== 0) {
+                vx += tx * forces.vorticity * sm * sens * f;
+                vy += ty * forces.vorticity * sm * sens * f;
             }
 
             // Radial oscillation — sinusoidal in-and-out breathing
             if (forces.radialOscillation > 0) {
                 const radialPhase = tSec * 0.4 + seed;
-                const radialPush = Math.sin(radialPhase) * forces.radialOscillation * sm * f;
+                const radialPush = Math.sin(radialPhase) * forces.radialOscillation * sm * sens * f;
                 vx += nx * radialPush;
                 vy += ny * radialPush;
             }
